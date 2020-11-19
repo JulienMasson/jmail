@@ -106,6 +106,11 @@
   :type 'hook
   :group 'jmail)
 
+(defcustom jmail-quit-hook nil
+  "Functions called after jmail quit"
+  :type 'hook
+  :group 'jmail)
+
 (defcustom jmail-sync-config-file nil
   "Path to the config file used by `jmail-sync-program'"
   :type 'string
@@ -363,8 +368,8 @@
   (jmail--stop-update-timer)
   (jmail-update-quit)
   (jmail-count-quit)
-  (with-jmail-buffer
-   (kill-this-buffer)))
+  (with-jmail-buffer (kill-this-buffer))
+  (run-hooks 'jmail-quit-hook))
 
 (defun jmail-enter ()
   (interactive)
