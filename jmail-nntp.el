@@ -82,10 +82,10 @@
      (goto-char (point-min))
      (forward-line)
      (while (not (eobp))
-	(let ((line (buffer-substring (line-beginning-position)
-				      (line-end-position))))
-	  ,@body
-	  (forward-line)))))
+       (let ((line (buffer-substring (line-beginning-position)
+				     (line-end-position))))
+	 ,@body
+	 (forward-line)))))
 
 (defun jmail-nntp--get-groups ()
   (let ((cmd (lambda () (nntp-request-list-newsgroups jmail-nntp-server)))

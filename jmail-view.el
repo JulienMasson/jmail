@@ -63,6 +63,8 @@
 
 (defvar-local jmail-view--html-view nil)
 
+(defvar-local jmail-view--html-reply-level 0)
+
 ;;; Internal Functions
 
 (defmacro with-jmail-view-buffer (&rest body)
@@ -87,10 +89,22 @@
 	(while (re-search-forward (car action) nil t)
 	  (replace-match (cadr action)))))))
 
+(defun jmail-view--fill-line ()
+  (let* ((indentation (get-text-property (point) 'shr-indentation))
+	 (level (/ indentation 32))
+	 (face (intern-soft (format "jmail-font-lock-cited-%d-face" level)))
+	 (header (concat "┃" (make-string level (string-to-char " ")))))
+    (when (> level 0)
+      (insert (propertize " " 'display header))
+      (put-text-property (line-beginning-position)
+			 (line-end-position)
+			 'face face))))
+
 (defun jmail-view--insert-html (html)
-  (let ((beg (point)))
-    (insert html)
-    (shr-render-region beg (point))))
+  (flet ((shr-fill-line () (jmail-view--fill-line)))
+    (let ((beg (point)))
+      (insert html)
+      (shr-render-region beg (point)))))
 
 (defun jmail-view--address-str (field)
   (when-let ((data (plist-get jmail-view--data field)))
@@ -195,12 +209,6 @@
        (setq jmail-view--data object)
        (jmail-view--insert-mail)))))
 
-(defun jmail-view--process-filter (process str)
-  (when (buffer-live-p (process-buffer process))
-    (with-current-buffer (process-buffer process)
-      (goto-char (point-max))
-      (insert str))))
-
 (defun jmail-view--get-mail-data (path)
   (when-let* ((default-directory jmail-top-maildir)
 	      (program (jmail-find-program jmail-index-program))
@@ -210,7 +218,7 @@
 			      program args)))
     (with-current-buffer buffer
       (erase-buffer))
-    (set-process-filter process 'jmail-view--process-filter)
+    (set-process-filter process 'jmail-process-filter)
     (set-process-sentinel process 'jmail-view--process-sentinel)))
 
 (defun jmail-view--signature-begin ()

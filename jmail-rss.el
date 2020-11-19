@@ -27,21 +27,29 @@
 
 ;;; Customization
 
-(defcustom jmail-rss-enable nil
-  "If non nil, Fetch RSS news"
-  :type 'boolean
-  :group 'jmail)
-
 (defcustom jmail-rss-config-file nil
   "Config file used by `jmail-rss-program'"
   :type 'string
+  :group 'jmail)
+
+(defcustom jmail-rss-fetch-every nil
+  "Fetch RSS news every X seconds, if nil don't fetch"
+  :type 'integer
   :group 'jmail)
 
 ;;; External Variables
 
 (defconst jmail-rss-program "feed2exec")
 
-(defvar jmail-rss--current-cb nil)
+(defconst jmail-rss-process-name "jmail-rss")
+
+;;; Internal Variables
+
+(defconst jmail-rss--buffer-name "*jmail-rss*")
+
+(defvar jmail-rss--fetch-timer nil)
+
+(defvar jmail-rss--quit-ongoing nil)
 
 ;;; Internal Functions
 
@@ -66,8 +74,8 @@
 	      (let ((mailbox (file-name-as-directory
 			      (assoc-default 'mailbox elem)))
 		    (folder (assoc-default 'folder elem)))
-	      (file-name-as-directory (concat mailbox folder))))
-	  folders)))
+		(file-name-as-directory (concat mailbox folder))))
+	    folders)))
 
 (defun jmail-rss--get-count (dir)
   (let* ((hostname (getenv "HOSTNAME"))
@@ -98,24 +106,56 @@
 	  folders)))
 
 (defun jmail-rss--process-sentinel (process status)
-  (when-jmail-update-process-success process
-      (jmail-rss--rename-new-entries)
-      (funcall jmail-rss--current-cb)))
+  (when-let ((buffer (process-buffer process)))
+    (if (or (zerop (process-exit-status process))
+	    jmail-rss--quit-ongoing)
+	(progn
+	  (kill-buffer buffer)
+	  (unless jmail-rss--quit-ongoing
+	    (jmail-get-counts)))
+      (pop-to-buffer buffer)))
+  (setq jmail-rss--quit-ongoing nil))
+
+(defun jmail-rss--stop-fetch-timer ()
+  (when jmail-rss--fetch-timer
+    (cancel-timer jmail-rss--fetch-timer)))
+
+(defun jmail-rss--start-fetch-timer ()
+  (setq jmail-rss--fetch-timer (run-at-time 1 jmail-rss-fetch-every 'jmail-rss-fetch)))
+
+(defun jmail-rss--restart-fetch-timer ()
+  (jmail-rss--stop-fetch-timer)
+  (jmail-rss--start-fetch-timer))
 
 ;;; External Functions
 
-(defun jmail-rss-enabled ()
-  (and jmail-rss-enable
-       (jmail-find-program jmail-rss-program)))
+(defun jmail-rss-quit ()
+  (when-let ((process (get-buffer-process jmail-rss--buffer-name)))
+    (setq jmail-rss--quit-ongoing t)
+    (delete-process process))
+  (jmail-rss--stop-fetch-timer))
 
-(defun jmail-rss-fetch (buffer cb)
-  (setq jmail-rss--current-cb cb)
+(defun jmail-rss-setup ()
+  (when (and jmail-rss-fetch-every (jmail-find-program jmail-rss-program))
+    (jmail-rss--restart-fetch-timer)))
+
+(defun jmail-rss-fetch ()
   (let* ((default-directory jmail-top-maildir)
 	 (program (jmail-find-program jmail-rss-program))
 	 (args (jmail-rss--get-args "fetch"))
-	 (process (apply 'start-file-process jmail-update-process-name
+	 (buffer (get-buffer-create jmail-rss--buffer-name))
+	 (process (apply 'start-file-process jmail-rss-process-name
 			 buffer program args)))
-    (set-process-filter process 'jmail-update--process-filter)
+    (with-current-buffer buffer
+      (erase-buffer))
+    (set-process-filter process 'jmail-process-filter)
     (set-process-sentinel process 'jmail-rss--process-sentinel)))
+
+(defun jmail-rss-update-now ()
+  (interactive)
+  (unless (get-buffer-process jmail-rss--buffer-name)
+    (if jmail-rss-fetch-every
+	(jmail-rss--restart-fetch-timer)
+      (jmail-rss-fetch))))
 
 (provide 'jmail-rss)

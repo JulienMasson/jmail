@@ -60,11 +60,6 @@
     (setq jmail-count--current nil)
     (kill-buffer jmail-count--buffer-name)))
 
-(defun jmail-count--process-filter (process str)
-  (with-current-buffer (process-buffer process)
-    (goto-char (point-max))
-    (insert str)))
-
 (defun jmail-count--process (jcount)
   (when-let* ((default-directory jmail-top-maildir)
 	      (program (jmail-find-program jmail-index-program))
@@ -76,13 +71,14 @@
     (with-current-buffer buffer
       (erase-buffer))
     (setq jmail-count--current jcount)
-    (set-process-filter process 'jmail-count--process-filter)
+    (set-process-filter process 'jmail-process-filter)
     (set-process-sentinel process 'jmail-count--process-sentinel)))
 
 ;;; External Functions
 
 (defun jmail-count-quit ()
   (setq jmail-count--queues nil)
+  (setq jmail-count--current nil)
   (jmail-terminate-process-buffer jmail-count--buffer-name))
 
 (defun jmail-count-get (query cb data)

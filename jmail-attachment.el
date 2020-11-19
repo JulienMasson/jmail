@@ -33,18 +33,13 @@
 
 (defun jmail-attachment--process-sentinel (process status)
   (if (eq (process-exit-status process) 0)
-    (with-current-buffer (process-buffer process)
-      (let ((dir default-directory))
-	(kill-this-buffer)
-	(when jmail-attachment-switch-to-dired
-	  (dired-other-window dir)
-	  (revert-buffer))))
+      (with-current-buffer (process-buffer process)
+	(let ((dir default-directory))
+	  (kill-this-buffer)
+	  (when jmail-attachment-switch-to-dired
+	    (dired-other-window dir)
+	    (revert-buffer))))
     (switch-to-buffer-other-window (process-buffer process))))
-
-(defun jmail-attachment--process-filter (process str)
-  (with-current-buffer (process-buffer process)
-    (goto-char (point-max))
-    (insert str)))
 
 (defun jmail-attachment--process (path args)
   (when-let* ((default-directory path)
@@ -52,7 +47,7 @@
 	      (buffer (get-buffer-create jmail-attachment--buffer-name))
 	      (process (apply 'start-file-process "jmail-attachment" buffer
 			      program args)))
-    (set-process-filter process 'jmail-attachment--process-filter)
+    (set-process-filter process 'jmail-process-filter)
     (set-process-sentinel process 'jmail-attachment--process-sentinel)))
 
 (defun jmail-attachment--build-args (outdir msg-path args)

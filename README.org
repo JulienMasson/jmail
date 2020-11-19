@@ -4,21 +4,21 @@
 
 *jmail* is an e-mail environment for [[https://www.gnu.org/software/emacs/][Emacs]].
 
-**** Example Emacs configuration:
+**** Basic configuration:
 #+begin_src elisp
 ;; jmail
 (require 'jmail)
 
-;; set Mail User Agent
+;; Mail User Agent
 (setq mail-user-agent 'jmail-user-agent)
 
-;; set top maildir
+;; top maildir
 (setq jmail-top-maildir "~/.cache/mails")
 
-;; set mbsync config file
+;; mbsync config file
 (setq jmail-sync-config-file "~/.mbsyncrc"))
 
-;; set msmtp config file
+;; msmtp config file
 (setq jmail-smtp-config-file "~/.msmtprc"))
 
 ;; queries

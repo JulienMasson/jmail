@@ -154,6 +154,8 @@
 (defun jmail-search--subject-str (object)
   (let* ((subject (plist-get object :subject))
 	 (thread (plist-get object :thread)))
+    (unless subject
+      (setq subject "(no subject)"))
     (if thread
 	(let* ((level (plist-get thread :level))
 	       (last-child (plist-get thread :last-child))
@@ -196,9 +198,9 @@
 
 (defun jmail-search--find-overlay (pos)
   (cl-find-if (lambda (ov)
-	      (and (<= (overlay-start ov) pos)
-		   (>= (overlay-end ov) pos)))
-	    jmail-search--overlays))
+		(and (<= (overlay-start ov) pos)
+		     (>= (overlay-end ov) pos)))
+	      jmail-search--overlays))
 
 (defun jmail-search--delete-all-overlays ()
   (with-jmail-search-buffer
@@ -590,15 +592,15 @@
 				      "Delete all messages from region: "
 				    "Delete message: "))))
   (when confirm
-      (if (region-active-p)
-	  (let ((range (jmail-search--foreach-line-region
-			(jmail-search--delete-message))))
-	    (apply #'jmail-search--remove-overlay-range range)
-	    (apply #'jmail-search--delete-region range))
-	(jmail-search--delete-message)
-	(jmail-search--remove-overlay)
-	(jmail-search--delete-line))
-      (jmail-update-buffer)))
+    (if (region-active-p)
+	(let ((range (jmail-search--foreach-line-region
+		      (jmail-search--delete-message))))
+	  (apply #'jmail-search--remove-overlay-range range)
+	  (apply #'jmail-search--delete-region range))
+      (jmail-search--delete-message)
+      (jmail-search--remove-overlay)
+      (jmail-search--delete-line))
+    (jmail-update-all)))
 
 (defun jmail-search-delete-thread (confirm)
   (interactive (list (yes-or-no-p "Delete whole thread: ")))
@@ -607,7 +609,7 @@
 		  (jmail-search--delete-message))))
       (apply #'jmail-search--remove-overlay-range range)
       (apply #'jmail-search--delete-region range)
-      (jmail-update-buffer))))
+      (jmail-update-all))))
 
 (defun jmail-search-mark-at-point-or-region (flag)
   (interactive (list (completing-read (if (region-active-p)
@@ -618,14 +620,14 @@
       (jmail-search--foreach-line-region
        (funcall (assoc-default flag jmail-search-mark-flags)))
     (funcall (assoc-default flag jmail-search-mark-flags)))
-  (jmail-update-buffer))
+  (jmail-update-all))
 
 (defun jmail-search-mark-thread (flag)
   (interactive (list (completing-read "Mark whole thread as: "
 				      (mapcar #'car jmail-search-mark-flags))))
   (jmail-search--foreach-line-thread
    (funcall (assoc-default flag jmail-search-mark-flags)))
-  (jmail-update-buffer))
+  (jmail-update-all))
 
 (defun jmail-search-apply-patch-series (dir)
   (interactive "DApply patch series: ")
@@ -669,14 +671,14 @@
       (jmail-search--foreach-line-region
        (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
     (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-  (jmail-update-buffer))
+  (jmail-update-all))
 
 (defun jmail-search-move-thread (maildir)
   (interactive (list (completing-read "Move whole thread to: "
 				      (jmail-maildirs (jmail-get-top-maildir)))))
   (jmail-search--foreach-line-thread
    (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-  (jmail-update-buffer))
+  (jmail-update-all))
 
 (defun jmail-search-toggle-thread ()
   (interactive)
@@ -684,7 +686,7 @@
     (let ((query (plist-get jmail-search--current :query))
 	  (thread (not (plist-get jmail-search--current :thread)))
 	  (related (plist-get jmail-search--current :related)))
-    (jmail-search--run query thread related))))
+      (jmail-search--run query thread related))))
 
 (defun jmail-search-toggle-related ()
   (interactive)
@@ -692,7 +694,7 @@
     (let ((query (plist-get jmail-search--current :query))
 	  (thread (plist-get jmail-search--current :thread))
 	  (related (not (plist-get jmail-search--current :related))))
-    (jmail-search--run query thread related))))
+      (jmail-search--run query thread related))))
 
 (defun jmail-search-fold-unfold-thread ()
   (interactive)

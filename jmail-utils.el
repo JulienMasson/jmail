@@ -60,6 +60,13 @@
       (apply func args)
     (error (message "Error %s: %S" (symbol-name func) err))))
 
+(defun jmail-process-filter (process str)
+  (when-let ((buffer (process-buffer process)))
+    (when (buffer-live-p (process-buffer process))
+      (with-current-buffer buffer
+	(goto-char (point-max))
+	(insert str)))))
+
 (defun jmail-terminate-process-buffer (buffer)
   (when-let* ((process (get-buffer-process buffer))
 	      (status (process-status process)))

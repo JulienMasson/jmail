@@ -23,8 +23,6 @@
 
 ;;; Code:
 
-(require 'jmail-rss)
-
 ;;; Customization
 
 (defcustom jmail-update--ignore-channels nil
@@ -40,8 +38,6 @@
 
 (defconst jmail-update--buffer-name "*jmail-update*")
 
-(defvar jmail-update--ongoing nil)
-
 (defvar jmail-update--success-cb nil)
 
 (defvar jmail-update--error-cb nil)
@@ -51,10 +47,9 @@
 (defun jmail-update--process-filter (process str)
   (with-current-buffer (process-buffer process)
     (goto-char (point-max))
-    (insert (mapconcat 'identity (split-string str "") "\n"))))
+    (insert (string-join (split-string str "") "\n"))))
 
 (defun jmail-update--reset-env ()
-  (setq jmail-update--ongoing nil)
   (setq jmail-update--success-cb nil)
   (setq jmail-update--error-cb nil))
 
@@ -90,32 +85,38 @@
 ;; sync
 (defun jmail-update--sync-process-sentinel (process status)
   (when-jmail-update-process-success process
-      (if (jmail-rss-enabled)
-	  (jmail-rss-fetch jmail-update--buffer-name #'jmail-update--index)
-	(jmail-update--index))))
+      (jmail-update--index)))
 
-(defun jmail-update--get-channels ()
-  (let (channels)
-    (with-current-buffer (find-file-noselect jmail-sync-config-file)
+(defun jmail-update--config-data ()
+  (let (data path channel slave)
+    (with-temp-buffer
+      (insert-file-contents jmail-sync-config-file)
       (goto-char (point-min))
-      (while (re-search-forward "^Channel " nil t)
-	(add-to-list 'channels
-		     (buffer-substring (point) (line-end-position)) t))
-      (kill-buffer))
-    channels))
+      (while (not (eobp))
+	(let ((line (buffer-substring-no-properties (line-beginning-position)
+						    (line-end-position))))
+	  (cond ((string-match "^Path \\(.+\\)" line)
+		 (setq path (file-name-nondirectory (directory-file-name
+						     (match-string 1 line)))))
+		((string-match "^Channel \\(.+\\)" line)
+		 (setq channel (match-string 1 line)))
+		((string-match "^Slave :.*:\\([[:alnum:]-_]+\\)" line)
+		 (setq slave (format "%s/%s" path (match-string 1 line)))
+		 (add-to-list 'data (cons slave channel) t)))
+	  (forward-line))))
+    data))
 
-(defun jmail-update--get-sync-args ()
-  (when-let* ((all-channels (jmail-update--get-channels))
-	      (channels (cl-set-difference all-channels
-					   jmail-update--ignore-channels
-					   :test #'string=)))
-    (append (list "--config" (jmail-untramp-path jmail-sync-config-file))
-	    channels)))
+(defun jmail-update--get-sync-args (channels)
+  (when-let ((args (cl-set-difference channels jmail-update--ignore-channels
+				      :test #'string=))
+	     (config (list "--config" (jmail-untramp-path jmail-sync-config-file))))
+    (append config args)))
 
-(defun jmail-update--sync ()
+(defun jmail-update--sync (success error args)
+  (setq jmail-update--success-cb success)
+  (setq jmail-update--error-cb error)
   (let* ((default-directory jmail-top-maildir)
 	 (program (jmail-find-program jmail-sync-program))
-	 (args (jmail-update--get-sync-args))
 	 (buffer (get-buffer-create jmail-update--buffer-name))
 	 (process (apply 'start-file-process jmail-update-process-name
 			 buffer program args)))
@@ -124,21 +125,24 @@
     (set-process-filter process 'jmail-update--process-filter)
     (set-process-sentinel process 'jmail-update--sync-process-sentinel)))
 
-(defun jmail-update--running ()
-  (and jmail-update--ongoing
-       (get-buffer-process jmail-update--buffer-name)))
-
 ;;; External Functions
 
 (defun jmail-update-quit ()
   (jmail-terminate-process-buffer jmail-update--buffer-name))
 
 (defun jmail-update (success error)
-  (interactive)
-  (unless (jmail-update--running)
-    (setq jmail-update--ongoing t)
-    (setq jmail-update--success-cb success)
-    (setq jmail-update--error-cb error)
-    (jmail-update--sync)))
+  (unless (get-buffer-process jmail-update--buffer-name)
+    (when-let* ((all-channels (mapcar #'cdr (jmail-update--config-data)))
+		(args (jmail-update--get-sync-args all-channels)))
+      (jmail-update--sync success error args))))
+
+(defun jmail-update-maildirs (maildirs success error)
+  (unless (get-buffer-process jmail-update--buffer-name)
+    (when-let* ((config-data (jmail-update--config-data))
+		(channels (delq nil (mapcar (lambda (maildir)
+					      (assoc-default maildir config-data))
+					    maildirs)))
+		(args (jmail-update--get-sync-args channels)))
+      (jmail-update--sync success error args))))
 
 (provide 'jmail-update)

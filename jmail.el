@@ -28,6 +28,7 @@
 (require 'jmail-count)
 (require 'jmail-nntp)
 (require 'jmail-org-msg)
+(require 'jmail-rss)
 (require 'jmail-search)
 (require 'jmail-update)
 (require 'jmail-utils)
@@ -47,9 +48,12 @@
 
 (defvar jmail-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map "F"      'jmail-rss-update-now)
+    (define-key map "G"      'jmail-update-all)
     (define-key map "N"      'jmail-nntp)
+    (define-key map "S"      'jmail-search-prompt-at-point)
     (define-key map "U"      'jmail-unread-all)
-    (define-key map "g"      'jmail-update-buffer)
+    (define-key map "g"      'jmail-update-at-point)
     (define-key map "j"      'jmail-jump-to-maildir)
     (define-key map "n"      'jmail-next-query)
     (define-key map "p"      'jmail-previous-query)
@@ -186,6 +190,7 @@
     (jmail-mode))
   (when jmail-update-buffer-every
     (jmail--restart-update-timer))
+  (jmail-rss-setup)
   (jmail--goto-first-query))
 
 (defun jmail--get-query (pos)
@@ -201,7 +206,7 @@
 	 (goto-char pos)
 	 (setq pos (jmail-find-alphanumeric-character (point) forward))
 	 (when pos
-	   (setq prop (jmail--get-query pos )))))
+	   (setq prop (jmail--get-query pos)))))
      (when (and pos prop)
        (goto-char pos)))))
 
@@ -268,15 +273,9 @@
 	     (jmail-bold-region beg (point))
 	   (jmail-unbold-region beg (point))))))))
 
-(defun jmail--get-counts ()
-  (jmail--foreach-query line query
-    (jmail-count-get query #'jmail--count-total-handler line)
-    (jmail-count-get (format "(%s) and flag:unread" query)
-    		     #'jmail--count-unread-handler line)))
-
 (defun jmail--update-buffer-success ()
   (jmail--update-header-line jmail--default-header)
-  (jmail--get-counts))
+  (jmail-get-counts))
 
 (defun jmail--update-buffer-error ()
   (jmail--update-header-line jmail--update-error))
@@ -295,8 +294,8 @@
 					 'jmail--start-update-buffer)))
 
 (defun jmail--restart-update-timer ()
-   (jmail--stop-update-timer)
-   (jmail--start-update-timer))
+  (jmail--stop-update-timer)
+  (jmail--start-update-timer))
 
 (defun jmail--maildir-name-list ()
   (let (maildir)
@@ -325,6 +324,12 @@
 
 ;;; External Functions
 
+(defun jmail-get-counts ()
+  (jmail--foreach-query line query
+    (jmail-count-get query #'jmail--count-total-handler line)
+    (jmail-count-get (format "(%s) and flag:unread" query)
+    		     #'jmail--count-unread-handler line)))
+
 (defun jmail-previous-query ()
   (interactive)
   (jmail--move-to-query nil))
@@ -333,14 +338,27 @@
   (interactive)
   (jmail--move-to-query t))
 
-(defun jmail-update-buffer ()
+(defun jmail-update-all ()
   (interactive)
   (if jmail-update-buffer-every
       (jmail--restart-update-timer)
     (jmail--start-update-buffer)))
 
+(defun jmail-update-at-point ()
+  (interactive)
+  (when-let* ((query (jmail--get-query (point)))
+	      (regexp "maildir:/\\([[:alnum:]-_]+/[[:alnum:]-_]+\\)")
+	      (maildirs (delq nil (mapcar (lambda (query)
+					    (when (string-match regexp query)
+					      (match-string 1 query)))
+					  (split-string query)))))
+    (jmail--update-header-line jmail--update-ongoing)
+    (jmail-update-maildirs maildirs #'jmail--update-buffer-success
+			   #'jmail--update-buffer-error)))
+
 (defun jmail-quit ()
   (interactive)
+  (jmail-rss-quit)
   (jmail-search-quit)
   (jmail--stop-update-timer)
   (jmail-update-quit)
@@ -351,7 +369,7 @@
 (defun jmail-enter ()
   (interactive)
   (when-let ((query (jmail--get-query (point))))
-      (jmail-search query)))
+    (jmail-search query)))
 
 (defun jmail-jump-to-maildir (query)
   (interactive (list (completing-read "Jump to: "
@@ -366,11 +384,16 @@
   (interactive)
   (when-let* ((query (jmail--get-query (point)))
 	      (unread (format "(%s) and flag:unread" query)))
-      (jmail-search unread)))
+    (jmail-search unread)))
 
 (defun jmail-search-prompt (query)
   (interactive (list (jmail-read-prompt "Search: " jmail-search-fields)))
   (jmail-search query))
+
+(defun jmail-search-prompt-at-point (query)
+  (interactive (list (jmail-read-prompt "Search: " jmail-search-fields)))
+  (when-let ((query-at-point (jmail--get-query (point))))
+    (jmail-search (format "(%s) and %s" query-at-point query))))
 
 (defun jmail ()
   (interactive)
@@ -379,7 +402,7 @@
     (jmail--check-programs)
     (unless (get-buffer jmail--buffer-name)
       (jmail--setup))
-    (jmail--get-counts)
+    (jmail-get-counts)
     (jmail-switch-to-buffer jmail--buffer-name)))
 
 (provide 'jmail)
