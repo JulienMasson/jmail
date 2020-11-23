@@ -315,7 +315,7 @@
   (unless (jmail-find-program jmail-sync-program)
     (jmail-abort (concat "Please install " jmail-sync-program))))
 
-(defun jmail--check-vars ()
+(defun jmail--check-env ()
   (unless jmail-top-maildir
     (jmail-abort "Please set `jmail-top-maildir'"))
   (unless jmail-sync-config-file
@@ -325,7 +325,8 @@
   (unless jmail-smtp-config-file
     (jmail-abort "Please set `jmail-smtp-config-file'"))
   (unless jmail-queries
-    (jmail-abort "Please set `jmail-queries'")))
+    (jmail-abort "Please set `jmail-queries'"))
+  (jmail-update-check-database))
 
 ;;; External Functions
 
@@ -402,7 +403,7 @@
 
 (defun jmail ()
   (interactive)
-  (jmail--check-vars)
+  (jmail--check-env)
   (let ((default-directory jmail-top-maildir))
     (jmail--check-programs)
     (unless (get-buffer jmail--buffer-name)

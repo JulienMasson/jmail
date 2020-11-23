@@ -125,7 +125,23 @@
     (set-process-filter process 'jmail-update--process-filter)
     (set-process-sentinel process 'jmail-update--sync-process-sentinel)))
 
+;; init
+(defun jmail-update--check-database (program)
+  (zerop (process-file program nil nil nil "info")))
+
+(defun jmail-update--init-database (program)
+  (let* ((maildir (concat "--maildir=" (jmail-untramp-path jmail-top-maildir)))
+	 (exit-status (process-file program nil nil nil "init" maildir)))
+    (unless (zerop exit-status)
+      (jmail-abort "Failed to init database"))))
+
 ;;; External Functions
+
+(defun jmail-update-check-database ()
+  (let* ((default-directory jmail-top-maildir)
+	 (program (jmail-find-program jmail-index-program)))
+    (unless (jmail-update--check-database program)
+      (jmail-update--init-database program))))
 
 (defun jmail-update-quit ()
   (jmail-terminate-process-buffer jmail-update--buffer-name))
