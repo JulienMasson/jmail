@@ -112,6 +112,7 @@
 	(progn
 	  (kill-buffer buffer)
 	  (unless jmail-rss--quit-ongoing
+	    (jmail-rss--rename-new-entries)
 	    (jmail-get-counts)))
       (pop-to-buffer buffer)))
   (setq jmail-rss--quit-ongoing nil))
