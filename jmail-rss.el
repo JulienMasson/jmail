@@ -141,22 +141,22 @@
     (jmail-rss--restart-fetch-timer)))
 
 (defun jmail-rss-fetch ()
-  (let* ((default-directory jmail-top-maildir)
-	 (program (jmail-find-program jmail-rss-program))
-	 (args (jmail-rss--get-args "fetch"))
-	 (buffer (get-buffer-create jmail-rss--buffer-name))
-	 (process (apply 'start-file-process jmail-rss-process-name
-			 buffer program args)))
-    (with-current-buffer buffer
-      (erase-buffer))
-    (set-process-filter process 'jmail-process-filter)
-    (set-process-sentinel process 'jmail-rss--process-sentinel)))
+  (unless (get-buffer-process jmail-rss--buffer-name)
+    (let* ((default-directory jmail-top-maildir)
+	   (program (jmail-find-program jmail-rss-program))
+	   (args (jmail-rss--get-args "fetch"))
+	   (buffer (get-buffer-create jmail-rss--buffer-name))
+	   (process (apply 'start-file-process jmail-rss-process-name
+			   buffer program args)))
+      (with-current-buffer buffer
+	(erase-buffer))
+      (set-process-filter process 'jmail-process-filter)
+      (set-process-sentinel process 'jmail-rss--process-sentinel))))
 
 (defun jmail-rss-update-now ()
   (interactive)
-  (unless (get-buffer-process jmail-rss--buffer-name)
-    (if jmail-rss-fetch-every
-	(jmail-rss--restart-fetch-timer)
-      (jmail-rss-fetch))))
+  (if jmail-rss-fetch-every
+      (jmail-rss--restart-fetch-timer)
+    (jmail-rss-fetch)))
 
 (provide 'jmail-rss)
