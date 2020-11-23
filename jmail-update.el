@@ -74,8 +74,7 @@
 (defun jmail-update--index ()
   (let* ((default-directory jmail-top-maildir)
 	 (program (jmail-find-program jmail-index-program))
-	 (maildir (concat "--maildir=" (jmail-untramp-path jmail-top-maildir)))
-	 (args (list "index" "--nocolor" maildir))
+	 (args (list "index" "--nocolor"))
 	 (buffer (get-buffer jmail-update--buffer-name))
 	 (process (apply 'start-file-process jmail-update-process-name
 			 buffer program args)))
