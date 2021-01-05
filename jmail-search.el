@@ -118,8 +118,6 @@
 
 (defconst jmail-search--buffer-name "*jmail-search*")
 
-(defconst jmail-search--format "%s %-11s %-16s  %s")
-
 (defvar-local jmail-search--current nil)
 
 (defvar jmail-search--objects-thread nil)
@@ -128,7 +126,7 @@
 
 (defvar-local jmail-search--done nil)
 
-(defvar-local jmail-search--overlays nil)
+(defvar-local jmail-search--flags-overlays nil)
 
 (defvar-local jmail-search--fold-overlays nil)
 
@@ -148,35 +146,34 @@
 
 (defun jmail-search--insert-header-line ()
   (with-jmail-search-buffer
-   (setq header-line-format (format jmail-search--format " 🔽" "Date" "From" "Subject"))
+   (setq header-line-format (format " %-11s %-16s  %s" "Date" "From" "Subject"))
    (force-mode-line-update)))
 
-(defun jmail-search--subject-str (object)
-  (let* ((subject (plist-get object :subject))
-	 (thread (plist-get object :thread)))
-    (unless subject
-      (setq subject "(no subject)"))
-    (if thread
-	(let* ((level (plist-get thread :level))
-	       (last-child (plist-get thread :last-child))
-	       (spaces (make-string (* level 4) (string-to-char " "))))
-	  (cond ((= level 0)
-		 subject)
-		((= level 1)
-		 (if last-child
-		     (format "  ┗━▶ %s" subject)
-		   (format "  ┣━▶ %s" subject)))
-		((> level 1)
-		 (if last-child
-		     (format "  ┃%s┗━▶ %s" spaces subject)
-		   (format "  ┃%s┣━▶ %s" spaces subject)))))
-      subject)))
+(defun jmail-search--subject (object)
+  (if-let ((subject (plist-get object :subject)))
+      subject
+    "(no subject)"))
 
-(defun jmail-search--date-str (object)
+(defun jmail-search--flags (object)
+  (plist-get object :flags))
+
+(defun jmail-search--thread (object)
+  (when-let ((thread (plist-get object :thread)))
+    (let* ((level (plist-get thread :level))
+	   (last-child (plist-get thread :last-child))
+	   (spaces (make-string (* level 4) (string-to-char " "))))
+      (cond ((= level 1)
+	     (if last-child "  ┗━▶" "  ┣━▶"))
+	    ((> level 1)
+	     (if last-child
+		 (format "  ┃%s┗━▶" spaces)
+	       (format "  ┃%s┣━▶" spaces)))))))
+
+(defun jmail-search--date (object)
   (propertize (format-time-string "%F" (plist-get object :date))
 	      'face 'font-lock-comment-face))
 
-(defun jmail-search--from-str (object)
+(defun jmail-search--from (object)
   (if-let ((from (car (plist-get object :from))))
       (if-let ((name (car from)))
 	  (propertize (truncate-string-to-width name 16)
@@ -185,66 +182,75 @@
 		    'face 'font-lock-variable-name-face))
     (propertize "unknown" 'face 'font-lock-variable-name-face)))
 
-(defun jmail-search--parse-object (object)
-  (list (jmail-search--date-str object)
-	(jmail-search--from-str object)
-	(jmail-search--subject-str object)))
-
-(defun jmail-search--insert-overlay (start end str)
-  (let ((overlay (make-overlay start end)))
-    (overlay-put overlay 'invisible t)
-    (overlay-put overlay 'before-string str)
-    (add-to-list 'jmail-search--overlays overlay)))
-
-(defun jmail-search--find-overlay (pos)
+(defun jmail-search--find-flags (pos)
   (cl-find-if (lambda (ov)
 		(and (<= (overlay-start ov) pos)
 		     (>= (overlay-end ov) pos)))
-	      jmail-search--overlays))
+	      jmail-search--flags-overlays))
+
+(defun jmail-search--svg-flags (flags)
+  (let (svg)
+    (mapc (lambda (flag)
+	    (cond ((eq flag 'unread)
+		   (add-to-list 'svg (svg-rounded-text "unread" "white" "red")))
+		  ((eq flag 'flagged)
+		   (add-to-list 'svg (svg-rounded-text "star" "white" "goldenrod")))
+		  ((eq flag 'attach)
+		   (add-to-list 'svg (svg-rounded-text "attach" "white" "DarkViolet")))))
+	  flags)
+    svg))
+
+(defun jmail-search--insert-flags (start flags)
+  (let* ((svg-flags (jmail-search--svg-flags flags))
+	 (svg-str (mapconcat (lambda (svg-flag)
+			       (propertize "x" 'display svg-flag))
+			     svg-flags " "))
+	 (overlay (make-overlay start (+ start 1))))
+    (overlay-put overlay 'invisible t)
+    (overlay-put overlay 'before-string (format " %s " svg-str))
+    (add-to-list 'jmail-search--flags-overlays overlay)))
 
 (defun jmail-search--delete-all-overlays ()
   (with-jmail-search-buffer
    (delete-all-overlays)
    (setq jmail-search--fold-overlays nil)
-   (setq jmail-search--overlays nil)))
-
-(defun jmail-search--insert-flag (start object)
-  (let ((flags (plist-get object :flags))
-	(unread (propertize "U " 'face 'error))
-	(flagged (propertize "S " 'face 'font-lock-warning-face)))
-    (cond ((member 'unread flags)
-	   (jmail-search--insert-overlay start (+ start 2) unread))
-	  ((member 'flagged flags)
-	   (jmail-search--insert-overlay start (+ start 2) flagged))
-	  (t (jmail-search--insert-overlay start (+ start 2) "  ")))))
+   (setq jmail-search--flags-overlays nil)))
 
 (defun jmail-search--process-results (object)
   (with-jmail-search-buffer
-   (cl-multiple-value-bind (date from subject)
-       (jmail-search--parse-object object)
+   (let ((from (jmail-search--from object))
+	 (date (jmail-search--date object))
+	 (thread (jmail-search--thread object))
+	 (flags (jmail-search--flags object))
+	 (subject (jmail-search--subject object))
+	 flags-start)
      (save-excursion
        (goto-char (point-max))
-       (insert (format jmail-search--format " " date from subject))
-       (add-text-properties (line-beginning-position) (line-end-position) object)
-       (jmail-search--insert-flag (line-beginning-position) object)
+       (insert (format "%-11s %-16s  %s" date from (if thread thread "")))
+       (setq flags-start (point))
+       (insert " " subject)
+       (jmail-search--insert-flags flags-start flags)
+       (add-text-properties (line-beginning-position) (line-end-position)
+			    (append (list :flags-start flags-start) object))
        (insert "\n")))))
 
-(defun jmail-search--remove-flag (pos)
-  (when-let ((overlay (jmail-search--find-overlay pos)))
-    (overlay-put overlay 'before-string "  ")))
+(defun jmail-search--update-flags ()
+  (when-let ((object (text-properties-at (point)))
+	     (flags-start (plist-get object :flags-start))
+	     (overlay (jmail-search--find-flags flags-start)))
+    (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
+    (delete-overlay overlay)
+    (jmail-search--insert-flags flags-start (jmail-search--flags object))))
 
-(defun jmail-search--set-flag (pos value)
-  (when-let ((overlay (jmail-search--find-overlay pos)))
-    (overlay-put overlay 'before-string value)))
+(defun jmail-search--set-flag (flag)
+  (when-let ((props (text-properties-at (point)))
+	     (flags-start (plist-get props :flags-start)))
+    (jmail-search--insert-flags flags-start (list flag))))
 
 (defun jmail-search--set-property (prop value)
   (put-text-property (line-beginning-position)
 		     (line-end-position)
 		     prop value))
-
-(defun jmail-search--funcall-object-at (func)
-  (when-let ((object (text-properties-at (point))))
-    (funcall func object)))
 
 (defun jmail-search--mark-as-read ()
   (with-jmail-search-buffer
@@ -258,9 +264,9 @@
        (jmail-search--set-property :flags flags)
        (setq new-path (replace-regexp-in-string "/new/" "/cur/" new-path)))
      (when (member 'unread flags)
-       (jmail-search--remove-flag point)
        (setq flags (remove 'unread flags))
        (jmail-search--set-property :flags flags)
+       (jmail-search--update-flags)
        (setq new-path (replace-regexp-in-string ",$" ",S" new-path)))
      (unless (string= path new-path)
        (jmail-search--set-property :path new-path)
@@ -275,13 +281,13 @@
 	       (str (propertize "U " 'face 'error))
 	       (new-path path))
      (unless (member 'unread flags)
-       (jmail-search--set-flag point str)
        (push 'unread flags)
        (jmail-search--set-property :flags flags)
        (setq new-path (replace-regexp-in-string ",\\([A-Z]*\\)S$"
 						",\\1"
 						new-path))
        (jmail-search--set-property :path new-path)
+       (jmail-search--update-flags)
        (rename-file path new-path)))))
 
 (defun jmail-search--mark-as-flagged ()
@@ -293,12 +299,12 @@
 	       (str (propertize "S " 'face 'font-lock-warning-face))
 	       (new-path path))
      (unless (member 'flagged flags)
-       (jmail-search--set-flag point str)
        (push 'flagged flags)
        (jmail-search--set-property :flags flags)
        (setq new-path (replace-regexp-in-string ",\\([A-Z]*\\)"
 						",F\\1" new-path))
        (jmail-search--set-property :path new-path)
+       (jmail-search--update-flags)
        (rename-file path new-path)))))
 
 (defun jmail-search--mark-as-unflagged ()
@@ -309,9 +315,9 @@
 	       (flags (plist-get object :flags))
 	       (new-path path))
      (when (member 'flagged flags)
-       (jmail-search--remove-flag point)
        (setq flags (remove 'flagged flags))
        (jmail-search--set-property :flags flags)
+       (jmail-search--update-flags)
        (setq new-path (replace-regexp-in-string ",F\\([A-Z]*\\)$"
 						",\\1" new-path))
        (jmail-search--set-property :path new-path)
@@ -528,8 +534,8 @@
 
 (defun jmail-search--remove-overlay ()
   (when-let* ((beg (line-beginning-position))
-	      (overlay (jmail-search--find-overlay beg)))
-    (setq jmail-search--overlays (remove overlay jmail-search--overlays))
+	      (overlay (jmail-search--find-flags beg)))
+    (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
     (delete-overlay overlay)))
 
 (defun jmail-search--remove-overlay-range (start end)
