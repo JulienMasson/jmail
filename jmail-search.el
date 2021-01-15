@@ -48,6 +48,7 @@
     (define-key map (kbd "C-TAB") 'jmail-search-fold-unfold-all-thread)
 
     (define-key map "g" 'jmail-search-refresh)
+    (define-key map "s" 'jmail-search-rerun)
 
     (define-key map "L" 'jmail-search-display-all)
 
@@ -728,6 +729,15 @@
     (let ((query (plist-get jmail-search--current :query))
 	  (thread (plist-get jmail-search--current :thread))
 	  (related (plist-get jmail-search--current :related)))
+      (jmail-search--run query thread related))))
+
+(defun jmail-search-rerun ()
+  (interactive)
+  (when jmail-search--current
+    (let* ((query (plist-get jmail-search--current :query))
+	   (query (read-string "Search: " query))
+	   (thread (plist-get jmail-search--current :thread))
+	   (related (plist-get jmail-search--current :related)))
       (jmail-search--run query thread related))))
 
 (defun jmail-search-display-all ()
