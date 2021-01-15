@@ -44,9 +44,10 @@
   (list "find" "--fields" " " query))
 
 (defun jmail-count--call-cb (count)
-  (when-let ((cb (jcount-cb jmail-count--current))
-	     (data (jcount-data jmail-count--current)))
-    (jmail-funcall cb count data)))
+  (when jmail-count--current
+    (when-let ((cb (jcount-cb jmail-count--current))
+	       (data (jcount-data jmail-count--current)))
+      (jmail-funcall cb count data))))
 
 (defun jmail-count--process-sentinel (process status)
   (when (eq (process-status process) 'exit)
