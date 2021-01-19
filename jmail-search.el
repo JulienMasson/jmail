@@ -253,6 +253,20 @@
 		     (line-end-position)
 		     prop value))
 
+(defun jmail-search--rename-file (old-path flags)
+  (let ((pattern "\\(.+\\)\\(?:cur\\|new\\|tmp\\)/\\(.+U=[0-9]+:2,\\).*")
+	(new-path old-path))
+    (when (string-match pattern old-path)
+      (bind-match-strings (dir file) old-path
+	(setq new-path (concat dir (if (member 'new flags) "new/" "cur/") file))
+	(when (member 'flagged flags)
+	  (setq new-path (concat new-path "F")))
+	(unless (member 'unread flags)
+	  (setq new-path (concat new-path "S")))
+	(unless (string= old-path new-path)
+	  (rename-file old-path new-path))))
+    new-path))
+
 (defun jmail-search--mark-as-read ()
   (with-jmail-search-buffer
    (when-let* ((point (line-beginning-position))
@@ -262,16 +276,13 @@
 	       (new-path path))
      (when (member 'new flags)
        (setq flags (remove 'new flags))
-       (jmail-search--set-property :flags flags)
-       (setq new-path (replace-regexp-in-string "/new/" "/cur/" new-path)))
+       (jmail-search--set-property :flags flags))
      (when (member 'unread flags)
        (setq flags (remove 'unread flags))
        (jmail-search--set-property :flags flags)
-       (jmail-search--update-flags)
-       (setq new-path (replace-regexp-in-string ",$" ",S" new-path)))
-     (unless (string= path new-path)
-       (jmail-search--set-property :path new-path)
-       (rename-file path new-path)))))
+       (jmail-search--update-flags))
+     (setq new-path (jmail-search--rename-file path flags))
+     (jmail-search--set-property :path new-path))))
 
 (defun jmail-search--mark-as-unread ()
   (with-jmail-search-buffer
@@ -284,12 +295,9 @@
      (unless (member 'unread flags)
        (push 'unread flags)
        (jmail-search--set-property :flags flags)
-       (setq new-path (replace-regexp-in-string ",\\([A-Z]*\\)S$"
-						",\\1"
-						new-path))
+       (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)
-       (jmail-search--update-flags)
-       (rename-file path new-path)))))
+       (jmail-search--update-flags)))))
 
 (defun jmail-search--mark-as-flagged ()
   (with-jmail-search-buffer
@@ -302,11 +310,9 @@
      (unless (member 'flagged flags)
        (push 'flagged flags)
        (jmail-search--set-property :flags flags)
-       (setq new-path (replace-regexp-in-string ",\\([A-Z]*\\)"
-						",F\\1" new-path))
+       (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)
-       (jmail-search--update-flags)
-       (rename-file path new-path)))))
+       (jmail-search--update-flags)))))
 
 (defun jmail-search--mark-as-unflagged ()
   (with-jmail-search-buffer
@@ -319,10 +325,8 @@
        (setq flags (remove 'flagged flags))
        (jmail-search--set-property :flags flags)
        (jmail-search--update-flags)
-       (setq new-path (replace-regexp-in-string ",F\\([A-Z]*\\)$"
-						",\\1" new-path))
-       (jmail-search--set-property :path new-path)
-       (rename-file path new-path)))))
+       (setq new-path (jmail-search--rename-file path flags))
+       (jmail-search--set-property :path new-path)))))
 
 (defun jmail-search--args (query thread related)
   (let ((option "find")
