@@ -236,16 +236,16 @@
        (insert "\n")))))
 
 (defun jmail-search--update-flags ()
-  (when-let ((object (text-properties-at (point)))
-	     (flags-start (plist-get object :flags-start))
-	     (overlay (jmail-search--find-flags flags-start)))
+  (when-let* ((object (text-properties-at (point)))
+	      (flags-start (plist-get object :flags-start))
+	      (overlay (jmail-search--find-flags flags-start)))
     (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
     (delete-overlay overlay)
     (jmail-search--insert-flags flags-start (jmail-search--flags object))))
 
 (defun jmail-search--set-flag (flag)
-  (when-let ((props (text-properties-at (point)))
-	     (flags-start (plist-get props :flags-start)))
+  (when-let* ((props (text-properties-at (point)))
+	      (flags-start (plist-get props :flags-start)))
     (jmail-search--insert-flags flags-start (list flag))))
 
 (defun jmail-search--set-property (prop value)
@@ -538,8 +538,9 @@
 			     'face 'jmail-search-overlay-fold-face))))
 
 (defun jmail-search--remove-overlay ()
-  (when-let* ((beg (line-beginning-position))
-	      (overlay (jmail-search--find-flags beg)))
+  (when-let* ((object (text-properties-at (point)))
+	      (flags-start (plist-get object :flags-start))
+	      (overlay (jmail-search--find-flags flags-start)))
     (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
     (delete-overlay overlay)))
 
