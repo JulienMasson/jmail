@@ -23,8 +23,8 @@
 
 ;;; Code:
 
-(require 'eaf)
 (require 'jmail-compose)
+(require 'jmail-html)
 (require 'org-msg)
 
 ;;; Faces
@@ -121,11 +121,12 @@
 
 (defun jmail-org-msg-preview ()
   (interactive)
-  (let ((file (make-temp-file "org-msg" nil ".html"))
-	(mail (org-msg-build)))
+  (let ((file (make-temp-file "org-msg-" nil ".html"))
+	(mail (org-msg-build (buffer-substring (org-msg-start)
+					       (org-msg-end)))))
     (with-temp-file file
       (insert (org-msg-xml-to-str mail)))
-    (eaf-open file "browser" "temp_html_file")))
+    (jmail-html-open file)))
 
 (defun jmail-org-msg-attach-dired-files ()
   "Attach marked dired files"

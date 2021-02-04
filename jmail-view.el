@@ -27,6 +27,7 @@
 (require 'jmail-attachment)
 (require 'jmail-compose)
 (require 'jmail-font-lock)
+(require 'jmail-html)
 
 ;;; Mode
 
@@ -36,6 +37,7 @@
     (define-key map "R" 'jmail-view-reply)
     (define-key map "S" 'jmail-view-save-attachments)
     (define-key map "n" 'jmail-search-next)
+    (define-key map "o" 'jmail-view-open-html)
     (define-key map "p" 'jmail-search-previous)
     (define-key map "q" 'jmail-view-quit)
     (define-key map "t" 'jmail-view-toggle-html)
@@ -365,6 +367,13 @@
   (with-jmail-view-buffer
    (setq jmail-view--html-view (not jmail-view--html-view))
    (jmail-view--insert-mail)))
+
+(defun jmail-view-open-html ()
+  (interactive)
+  (when-let ((html (plist-get jmail-view--data :body-html))
+	     (file (make-temp-file "jmail-view-" nil ".html")))
+    (with-temp-file file (insert html))
+    (jmail-html-open file)))
 
 (defun jmail-view-quit ()
   (interactive)
