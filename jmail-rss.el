@@ -87,12 +87,13 @@
 
 (defun jmail-rss--rename-file (file count)
   (let* ((hostname (getenv "HOSTNAME"))
-	 (regexp (concat hostname "$")))
+	 (regexp (concat ".*" hostname "$")))
     (when (string-match regexp file)
       (rename-file file (format "%s,U=%d:2," file count)))))
 
 (defun jmail-rss--rename-new-entries ()
-  (let ((folders (jmail-rss--get-folders)))
+  (let* ((default-directory jmail-top-maildir)
+	 (folders (jmail-rss--get-folders)))
     (mapc (lambda (folder)
 	    (let* ((cur-dir (concat folder "cur/"))
 		   (new-dir (concat folder "new/"))
