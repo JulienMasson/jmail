@@ -370,10 +370,21 @@
 
 (defun jmail-view-open-html ()
   (interactive)
-  (when-let ((html (plist-get jmail-view--data :body-html))
-	     (file (make-temp-file "jmail-view-" nil ".html")))
-    (with-temp-file file (insert html))
-    (jmail-html-open file)))
+  (let* ((html (plist-get jmail-view--data :body-html))
+	 (dir (make-temp-file "jmail-view-" t))
+	 (default-directory dir)
+	 (file (concat dir "/file.html"))
+	 (msg-path (plist-get jmail-view--data :path))
+	 (attachments (jmail-view--get-attachments)))
+    (when html
+      (with-temp-file file
+	(insert html)
+	(when attachments
+	  (jmail-attachment-save-all msg-path dir nil)
+	  (goto-char (point-min))
+	  (while (re-search-forward "cid:\\([[:graph:]]+\\)@[[:graph:]]+\"" nil t)
+	    (replace-match "\\1\""))))
+      (jmail-html-open file))))
 
 (defun jmail-view-quit ()
   (interactive)
