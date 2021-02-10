@@ -24,10 +24,10 @@ It depends on the following tools:
 (setq jmail-top-maildir "~/.cache/mails")
 
 ;; mbsync config file
-(setq jmail-sync-config-file "~/.mbsyncrc"))
+(setq jmail-sync-config-file "~/.mbsyncrc")
 
 ;; msmtp config file
-(setq jmail-smtp-config-file "~/.msmtprc"))
+(setq jmail-smtp-config-file "~/.msmtprc")
 
 ;; queries
 (setq jmail-queries '(("Custom" . (("Starred" . "flag:flagged")))
