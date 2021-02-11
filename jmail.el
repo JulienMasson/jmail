@@ -397,7 +397,7 @@
   (jmail-search query))
 
 (defun jmail-search-prompt-at-point (query)
-  (interactive (list (jmail-read-prompt "Search: " jmail-search-fields)))
+  (interactive (list (jmail-read-prompt "Search here: " jmail-search-fields)))
   (when-let ((query-at-point (jmail--get-query (point))))
     (jmail-search (format "(%s) and %s" query-at-point query))))
 
