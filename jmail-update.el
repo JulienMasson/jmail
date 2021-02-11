@@ -87,7 +87,7 @@
       (jmail-update--index)))
 
 (defun jmail-update--config-data ()
-  (let (data path channel slave)
+  (let (data path channel maildir slave)
     (with-temp-buffer
       (insert-file-contents jmail-sync-config-file)
       (goto-char (point-min))
@@ -99,9 +99,13 @@
 						     (match-string 1 line)))))
 		((string-match "^Channel \\(.+\\)" line)
 		 (setq channel (match-string 1 line)))
-		((string-match "^Slave :.*:\\([[:alnum:]-_]+\\)" line)
-		 (setq slave (format "%s/%s" path (match-string 1 line)))
-		 (add-to-list 'data (cons slave channel) t)))
+		((string-match "^Master :.*:\"\\(.+\\)\"" line)
+		 (setq maildir (format "%s/%s" path (match-string 1 line))))
+		((string-match "^Slave :.*:\\(.*\\)" line)
+		 (setq slave (match-string 1 line))
+		 (when (string-match "[[:alnum:]-_]+" slave)
+		   (setq maildir (format "%s/%s" path slave)))
+		 (add-to-list 'data (cons maildir channel) t)))
 	  (forward-line))))
     data))
 
