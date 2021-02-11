@@ -25,6 +25,7 @@
 
 (require 'jmail-compose)
 (require 'jmail-html)
+(require 'ox-html)
 (require 'org-msg)
 
 ;;; Faces
