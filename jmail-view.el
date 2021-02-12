@@ -44,7 +44,7 @@
     map)
   "Keymap for `jmail-view-mode'")
 
-(define-derived-mode jmail-view-mode text-mode
+(define-derived-mode jmail-view-mode message-mode
   "jmail view"
   (toggle-read-only t))
 
