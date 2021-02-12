@@ -95,6 +95,12 @@
 
 ;;; Customization
 
+(defcustom jmail-search-threaded-view t
+  "If non nil, search buffer will display threaded messages by default.
+The user is still able to toggle the view with `jmail-search-toggle-thread'."
+  :type 'boolean
+  :group 'jmail)
+
 (defcustom jmail-search-mark-flags '(("read"      . jmail-search--mark-as-read)
 				     ("unread"    . jmail-search--mark-as-unread)
 				     ("flagged"   . jmail-search--mark-as-flagged)
@@ -834,6 +840,6 @@
 
 (defun jmail-search (query)
   (setq jmail-search--saved-index 0)
-  (jmail-search--run query t nil t))
+  (jmail-search--run query jmail-search-threaded-view nil t))
 
 (provide 'jmail-search)
