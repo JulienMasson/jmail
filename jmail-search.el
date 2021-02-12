@@ -631,7 +631,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (jmail-search--delete-message)
       (jmail-search--remove-overlay)
       (jmail-search--delete-line))
-    (jmail-update-all)))
+    (jmail-fetch-refresh-all t)))
 
 (defun jmail-search-delete-thread (confirm)
   (interactive (list (yes-or-no-p "Delete whole thread: ")))
@@ -640,7 +640,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 		  (jmail-search--delete-message))))
       (apply #'jmail-search--remove-overlay-range range)
       (apply #'jmail-search--delete-region range)
-      (jmail-update-all))))
+      (jmail-fetch-refresh-all t))))
 
 (defun jmail-search-mark-at-point-or-region (flag)
   (interactive (list (completing-read (if (region-active-p)
@@ -651,14 +651,14 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (jmail-search--foreach-line-region
        (funcall (assoc-default flag jmail-search-mark-flags)))
     (funcall (assoc-default flag jmail-search-mark-flags)))
-  (jmail-update-all))
+  (jmail-fetch-refresh-all t))
 
 (defun jmail-search-mark-thread (flag)
   (interactive (list (completing-read "Mark whole thread as: "
 				      (mapcar #'car jmail-search-mark-flags))))
   (jmail-search--foreach-line-thread
    (funcall (assoc-default flag jmail-search-mark-flags)))
-  (jmail-update-all))
+  (jmail-fetch-refresh-all t))
 
 (defun jmail-search-apply-patch-series (dir)
   (interactive "DApply patch series: ")
@@ -702,14 +702,14 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (jmail-search--foreach-line-region
        (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
     (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-  (jmail-update-all))
+  (jmail-fetch-refresh-all t))
 
 (defun jmail-search-move-thread (maildir)
   (interactive (list (completing-read "Move whole thread to: "
 				      (jmail-maildirs (jmail-get-top-maildir)))))
   (jmail-search--foreach-line-thread
    (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-  (jmail-update-all))
+  (jmail-fetch-refresh-all t))
 
 (defun jmail-search-toggle-thread ()
   (interactive)

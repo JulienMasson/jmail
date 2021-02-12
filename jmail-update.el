@@ -75,7 +75,7 @@
   (let* ((default-directory jmail-top-maildir)
 	 (program (jmail-find-program jmail-index-program))
 	 (args (list "index" "--nocolor"))
-	 (buffer (get-buffer jmail-update--buffer-name))
+	 (buffer (get-buffer-create jmail-update--buffer-name))
 	 (process (apply 'start-file-process jmail-update-process-name
 			 buffer program args)))
     (set-process-filter process 'jmail-update--process-filter)
@@ -116,8 +116,6 @@
     (append config args)))
 
 (defun jmail-update--sync (success error args)
-  (setq jmail-update--success-cb success)
-  (setq jmail-update--error-cb error)
   (let* ((default-directory jmail-top-maildir)
 	 (program (jmail-find-program jmail-sync-program))
 	 (buffer (get-buffer-create jmail-update--buffer-name))
@@ -149,11 +147,15 @@
 (defun jmail-update-quit ()
   (jmail-terminate-process-buffer jmail-update--buffer-name))
 
-(defun jmail-update (success error)
+(defun jmail-update (success error &optional skip-sync)
   (unless (get-buffer-process jmail-update--buffer-name)
-    (when-let* ((all-channels (mapcar #'cdr (jmail-update--config-data)))
-		(args (jmail-update--get-sync-args all-channels)))
-      (jmail-update--sync success error args))))
+    (setq jmail-update--success-cb success)
+    (setq jmail-update--error-cb error)
+    (if skip-sync
+	(jmail-update--index)
+      (when-let* ((all-channels (mapcar #'cdr (jmail-update--config-data)))
+		  (args (jmail-update--get-sync-args all-channels)))
+	(jmail-update--sync success error args)))))
 
 (defun jmail-update-maildirs (maildirs success error)
   (unless (get-buffer-process jmail-update--buffer-name)

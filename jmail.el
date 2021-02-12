@@ -48,21 +48,28 @@
 
 (defvar jmail-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "F"      'jmail-rss-update-now)
-    (define-key map "G"      'jmail-update-all)
-    (define-key map "N"      'jmail-nntp)
-    (define-key map "S"      'jmail-search-prompt-at-point)
+    (define-key map "g"      'jmail-refresh-at-point)
+    (define-key map "G"      'jmail-refresh-all)
+
+    (define-key map "f"      'jmail-fetch-refresh-at-point)
+    (define-key map "F"      'jmail-fetch-refresh-all)
+
+    (define-key map "u"      'jmail-unread-at-point)
     (define-key map "U"      'jmail-unread-all)
-    (define-key map "g"      'jmail-update-at-point)
+
+    (define-key map "s"      'jmail-search-prompt-at-point)
+    (define-key map "S"      'jmail-search-prompt)
+
     (define-key map "j"      'jmail-jump-to-maildir)
     (define-key map "n"      'jmail-next-query)
     (define-key map "p"      'jmail-previous-query)
     (define-key map "q"      'jmail-quit)
-    (define-key map "s"      'jmail-search-prompt)
-    (define-key map "u"      'jmail-unread)
     (define-key map [down]   'jmail-next-query)
     (define-key map [return] 'jmail-enter)
     (define-key map [up]     'jmail-previous-query)
+
+    (define-key map "R"      'jmail-rss-fetch-refresh-now)
+    (define-key map "N"      'jmail-nntp)
     map)
   "Keymap for `jmail-mode'")
 
@@ -96,8 +103,8 @@
   "Queries displayed in menu"
   :group 'jmail)
 
-(defcustom jmail-update-buffer-every nil
-  "Update buffer every X seconds, if nil don't refresh"
+(defcustom jmail-fetch-refresh-every nil
+  "If non nil, fetch and refresh every X seconds"
   :type 'integer
   :group 'jmail)
 
@@ -133,15 +140,11 @@
 
 (defconst jmail--unknown-count "(/)")
 
-(defconst jmail--default-header "       Welcome to Jmail !")
+(defconst jmail--default-header "Welcome to Jmail !")
+(defconst jmail--fetch-ongoing (propertize "Fetch ongoing ..." 'face 'warning))
+(defconst jmail--fetch-error (propertize "Fetch Failed !" 'face 'error))
 
-(defconst jmail--update-ongoing (propertize 	"       Update ongoing ..."
-						'face 'warning))
-
-(defconst jmail--update-error (propertize 	"       Update Failed !"
-						'face 'error))
-
-(defvar jmail--update-timer nil)
+(defvar jmail--fetch-refresh-timer nil)
 
 ;;; Internal Functions
 
@@ -187,14 +190,14 @@
 
 (defun jmail--update-header-line (str)
   (with-jmail-buffer
-   (setq header-line-format str)
+   (setq header-line-format (concat "       " str))
    (force-mode-line-update)))
 
 (defun jmail--setup ()
   (with-current-buffer (get-buffer-create jmail--buffer-name)
     (jmail-mode))
-  (when jmail-update-buffer-every
-    (jmail--restart-update-timer))
+  (when jmail-fetch-refresh-every
+    (jmail--restart-fetch-refresh-timer))
   (jmail-rss-setup)
   (jmail--goto-first-query))
 
@@ -278,29 +281,30 @@
 	     (jmail-bold-region beg (point))
 	   (jmail-unbold-region beg (point))))))))
 
-(defun jmail--update-buffer-success ()
+(defun jmail--fetch-success-cb ()
   (jmail--update-header-line jmail--default-header)
-  (jmail-get-counts))
+  (jmail-refresh-all))
 
-(defun jmail--update-buffer-error ()
-  (jmail--update-header-line jmail--update-error))
+(defun jmail--fetch-error-cb ()
+  (jmail--update-header-line jmail--fetch-error))
 
-(defun jmail--start-update-buffer ()
-  (jmail--update-header-line jmail--update-ongoing)
-  (jmail-update #'jmail--update-buffer-success
-		#'jmail--update-buffer-error))
+(defun jmail--start-fetch-refresh (&optional skip-sync)
+  (jmail--update-header-line jmail--fetch-ongoing)
+  (jmail-update #'jmail--fetch-success-cb
+		#'jmail--fetch-error-cb
+		skip-sync))
 
-(defun jmail--stop-update-timer ()
-  (when jmail--update-timer
-    (cancel-timer jmail--update-timer)))
+(defun jmail--stop-fetch-refresh-timer ()
+  (when jmail--fetch-refresh-timer
+    (cancel-timer jmail--fetch-refresh-timer)))
 
-(defun jmail--start-update-timer ()
-  (setq jmail--update-timer (run-at-time 1 jmail-update-buffer-every
-					 'jmail--start-update-buffer)))
+(defun jmail--start-fetch-refresh-timer (&optional skip-sync)
+  (setq jmail--fetch-refresh-timer
+	(run-at-time 1 jmail-fetch-refresh-every 'jmail--start-fetch-refresh skip-sync)))
 
-(defun jmail--restart-update-timer ()
-  (jmail--stop-update-timer)
-  (jmail--start-update-timer))
+(defun jmail--restart-fetch-refresh-timer (&optional skip-sync)
+  (jmail--stop-fetch-refresh-timer)
+  (jmail--start-fetch-refresh-timer skip-sync))
 
 (defun jmail--maildir-name-list ()
   (let (maildir)
@@ -330,27 +334,22 @@
 
 ;;; External Functions
 
-(defun jmail-get-counts ()
+(defun jmail-refresh-at-point ()
+  (interactive)
+  (when-let ((query (jmail--get-query (point)))
+	     (line (line-number-at-pos)))
+    (jmail-count-get query #'jmail--count-total-handler line)
+    (jmail-count-get (format "(%s) and flag:unread" query)
+    		     #'jmail--count-unread-handler line)))
+
+(defun jmail-refresh-all ()
+  (interactive)
   (jmail--foreach-query line query
     (jmail-count-get query #'jmail--count-total-handler line)
     (jmail-count-get (format "(%s) and flag:unread" query)
     		     #'jmail--count-unread-handler line)))
 
-(defun jmail-previous-query ()
-  (interactive)
-  (jmail--move-to-query nil))
-
-(defun jmail-next-query ()
-  (interactive)
-  (jmail--move-to-query t))
-
-(defun jmail-update-all ()
-  (interactive)
-  (if jmail-update-buffer-every
-      (jmail--restart-update-timer)
-    (jmail--start-update-buffer)))
-
-(defun jmail-update-at-point ()
+(defun jmail-fetch-refresh-at-point ()
   (interactive)
   (when-let* ((query (jmail--get-query (point)))
 	      (regexp "maildir:/\\([[:alnum:]-_]+/[[:alnum:]-_]+\\)")
@@ -358,15 +357,53 @@
 					    (when (string-match regexp query)
 					      (match-string 1 query)))
 					  (split-string query)))))
-    (jmail--update-header-line jmail--update-ongoing)
-    (jmail-update-maildirs maildirs #'jmail--update-buffer-success
-			   #'jmail--update-buffer-error)))
+    (jmail--update-header-line jmail--fetch-ongoing)
+    (jmail-update-maildirs maildirs #'jmail--fetch-success-cb
+			   #'jmail--fetch-error-cb)))
+
+(defun jmail-fetch-refresh-all (&optional skip-sync)
+  (interactive)
+  (if jmail-fetch-refresh-every
+      (jmail--restart-fetch-refresh-timer skip-sync)
+    (jmail--start-fetch-refresh skip-sync)))
+
+(defun jmail-unread-at-point ()
+  (interactive)
+  (when-let* ((query (jmail--get-query (point)))
+	      (unread (format "(%s) and flag:unread" query)))
+    (jmail-search unread)))
+
+(defun jmail-unread-all ()
+  (interactive)
+  (jmail-search "flag:unread"))
+
+(defun jmail-search-prompt-at-point (query)
+  (interactive (list (jmail-read-prompt "Search here: " jmail-search-fields)))
+  (when-let ((query-at-point (jmail--get-query (point))))
+    (jmail-search (format "(%s) and %s" query-at-point query))))
+
+(defun jmail-search-prompt (query)
+  (interactive (list (jmail-read-prompt "Search: " jmail-search-fields)))
+  (jmail-search query))
+
+(defun jmail-jump-to-maildir (query)
+  (interactive (list (completing-read "Jump to: "
+				      (jmail--maildir-name-list))))
+  (jmail-search (concat "maildir:/" query)))
+
+(defun jmail-next-query ()
+  (interactive)
+  (jmail--move-to-query t))
+
+(defun jmail-previous-query ()
+  (interactive)
+  (jmail--move-to-query nil))
 
 (defun jmail-quit ()
   (interactive)
   (jmail-rss-quit)
   (jmail-search-quit)
-  (jmail--stop-update-timer)
+  (jmail--stop-fetch-refresh-timer)
   (jmail-update-quit)
   (jmail-count-quit)
   (with-jmail-buffer (kill-this-buffer))
@@ -377,30 +414,6 @@
   (when-let ((query (jmail--get-query (point))))
     (jmail-search query)))
 
-(defun jmail-jump-to-maildir (query)
-  (interactive (list (completing-read "Jump to: "
-				      (jmail--maildir-name-list))))
-  (jmail-search (concat "maildir:/" query)))
-
-(defun jmail-unread-all ()
-  (interactive)
-  (jmail-search "flag:unread"))
-
-(defun jmail-unread ()
-  (interactive)
-  (when-let* ((query (jmail--get-query (point)))
-	      (unread (format "(%s) and flag:unread" query)))
-    (jmail-search unread)))
-
-(defun jmail-search-prompt (query)
-  (interactive (list (jmail-read-prompt "Search: " jmail-search-fields)))
-  (jmail-search query))
-
-(defun jmail-search-prompt-at-point (query)
-  (interactive (list (jmail-read-prompt "Search here: " jmail-search-fields)))
-  (when-let ((query-at-point (jmail--get-query (point))))
-    (jmail-search (format "(%s) and %s" query-at-point query))))
-
 (defun jmail ()
   (interactive)
   (jmail--check-env)
@@ -408,7 +421,7 @@
     (jmail--check-programs)
     (unless (get-buffer jmail--buffer-name)
       (jmail--setup))
-    (jmail-get-counts)
+    (jmail-refresh-all)
     (jmail-switch-to-buffer jmail--buffer-name)))
 
 (provide 'jmail)

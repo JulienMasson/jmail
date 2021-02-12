@@ -36,8 +36,8 @@ It depends on the following tools:
                                    ("INBOX"   . "maildir:/Gmail/INBOX")
                                    ("Sent"    . "maildir:/Gmail/Sent")))))
 
-;; refresh every 60 seconds
-(setq jmail-update-buffer-every 60)
+;; fetch/refresh every 60 seconds
+(setq jmail-fetch-refresh-every 60)
 #+end_src
 
 For more complete config, please look at mine [[https://github.com/JulienMasson/jm-config/blob/master/emacs/my-mail.el][perso-config]].

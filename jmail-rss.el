@@ -32,8 +32,8 @@
   :type 'string
   :group 'jmail)
 
-(defcustom jmail-rss-fetch-every nil
-  "Fetch RSS news every X seconds, if nil don't fetch"
+(defcustom jmail-rss-fetch-refresh-every nil
+  "If non nil, fetch RSS news and refresh every X seconds"
   :type 'integer
   :group 'jmail)
 
@@ -47,7 +47,7 @@
 
 (defconst jmail-rss--buffer-name "*jmail-rss*")
 
-(defvar jmail-rss--fetch-timer nil)
+(defvar jmail-rss--fetch-refresh-timer nil)
 
 (defvar jmail-rss--quit-ongoing nil)
 
@@ -114,20 +114,21 @@
 	  (kill-buffer buffer)
 	  (unless jmail-rss--quit-ongoing
 	    (jmail-rss--rename-new-entries)
-	    (jmail-get-counts)))
+	    (jmail-fetch-refresh-all t)))
       (pop-to-buffer buffer)))
   (setq jmail-rss--quit-ongoing nil))
 
-(defun jmail-rss--stop-fetch-timer ()
-  (when jmail-rss--fetch-timer
-    (cancel-timer jmail-rss--fetch-timer)))
+(defun jmail-rss--stop-fetch-refresh-timer ()
+  (when jmail-rss--fetch-refresh-timer
+    (cancel-timer jmail-rss--fetch-refresh-timer)))
 
-(defun jmail-rss--start-fetch-timer ()
-  (setq jmail-rss--fetch-timer (run-at-time 1 jmail-rss-fetch-every 'jmail-rss-fetch)))
+(defun jmail-rss--start-fetch-refresh-timer ()
+  (setq jmail-rss--fetch-refresh-timer (run-at-time 1 jmail-rss-fetch-refresh-every
+						    'jmail-rss-fetch-refresh)))
 
-(defun jmail-rss--restart-fetch-timer ()
-  (jmail-rss--stop-fetch-timer)
-  (jmail-rss--start-fetch-timer))
+(defun jmail-rss--restart-fetch-refresh-timer ()
+  (jmail-rss--stop-fetch-refresh-timer)
+  (jmail-rss--start-fetch-refresh-timer))
 
 ;;; External Functions
 
@@ -135,13 +136,13 @@
   (when-let ((process (get-buffer-process jmail-rss--buffer-name)))
     (setq jmail-rss--quit-ongoing t)
     (delete-process process))
-  (jmail-rss--stop-fetch-timer))
+  (jmail-rss--stop-fetch-refresh-timer))
 
 (defun jmail-rss-setup ()
-  (when (and jmail-rss-fetch-every (jmail-find-program jmail-rss-program))
-    (jmail-rss--restart-fetch-timer)))
+  (when (and jmail-rss-fetch-refresh-every (jmail-find-program jmail-rss-program))
+    (jmail-rss--restart-fetch-refresh-timer)))
 
-(defun jmail-rss-fetch ()
+(defun jmail-rss-fetch-refresh ()
   (unless (get-buffer-process jmail-rss--buffer-name)
     (let* ((default-directory jmail-top-maildir)
 	   (program (jmail-find-program jmail-rss-program))
@@ -154,10 +155,10 @@
       (set-process-filter process 'jmail-process-filter)
       (set-process-sentinel process 'jmail-rss--process-sentinel))))
 
-(defun jmail-rss-update-now ()
+(defun jmail-rss-fetch-refresh-now ()
   (interactive)
-  (if jmail-rss-fetch-every
+  (if jmail-rss-fetch-refresh-every
       (jmail-rss--restart-fetch-timer)
-    (jmail-rss-fetch)))
+    (jmail-rss-fetch-refresh)))
 
 (provide 'jmail-rss)
