@@ -106,6 +106,11 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   :type 'boolean
   :group 'jmail)
 
+(defcustom jmail-search-bold-unread-message nil
+  "If non nil, unread message title is bold"
+  :type 'boolean
+  :group 'jmail)
+
 (defcustom jmail-search-mark-flags '(("read"      . jmail-search--mark-as-read)
 				     ("unread"    . jmail-search--mark-as-unread)
 				     ("flagged"   . jmail-search--mark-as-flagged)
@@ -240,7 +245,9 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (goto-char (point-max))
        (insert (format "%-11s %-16s  %s" date from (if thread thread "")))
        (setq flags-start (point))
-       (insert " " subject)
+       (if (and jmail-search-bold-unread-message (member 'unread flags))
+	   (insert " " (propertize subject 'face 'bold))
+	 (insert " " subject))
        (when jmail-search-show-flags
 	 (jmail-search--insert-flags flags-start flags)
 	 (setq object (append (list :flags-start flags-start) object)))
