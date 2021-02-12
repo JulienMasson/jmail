@@ -101,6 +101,11 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   :type 'boolean
   :group 'jmail)
 
+(defcustom jmail-search-show-flags t
+  "If non nil, search buffer will display flags in front of message title"
+  :type 'boolean
+  :group 'jmail)
+
 (defcustom jmail-search-mark-flags '(("read"      . jmail-search--mark-as-read)
 				     ("unread"    . jmail-search--mark-as-unread)
 				     ("flagged"   . jmail-search--mark-as-flagged)
@@ -236,9 +241,10 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (insert (format "%-11s %-16s  %s" date from (if thread thread "")))
        (setq flags-start (point))
        (insert " " subject)
-       (jmail-search--insert-flags flags-start flags)
-       (add-text-properties (line-beginning-position) (line-end-position)
-			    (append (list :flags-start flags-start) object))
+       (when jmail-search-show-flags
+	 (jmail-search--insert-flags flags-start flags)
+	 (setq object (append (list :flags-start flags-start) object)))
+       (add-text-properties (line-beginning-position) (line-end-position) object)
        (insert "\n")))))
 
 (defun jmail-search--update-flags ()
