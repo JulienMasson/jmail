@@ -25,7 +25,7 @@
 
 ;;; Customization
 
-(defcustom jmail-update--ignore-channels nil
+(defcustom jmail-update-ignore-channels nil
   "If non nil, list of channels to ignore when fetching mails"
   :type 'list
   :group 'jmail)
@@ -110,7 +110,7 @@
     data))
 
 (defun jmail-update--get-sync-args (channels)
-  (when-let ((args (cl-set-difference channels jmail-update--ignore-channels
+  (when-let ((args (cl-set-difference channels jmail-update-ignore-channels
 				      :test #'string=))
 	     (config (list "--config" (jmail-untramp-path jmail-sync-config-file))))
     (append config args)))
