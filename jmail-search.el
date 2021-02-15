@@ -313,7 +313,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
      (when (member 'unread flags)
        (setq flags (remove 'unread flags))
        (jmail-search--set-property :flags flags)
-       (jmail-search--update-flags)
+       (when jmail-search-show-flags
+	 (jmail-search--update-flags))
        (when jmail-search-bold-unread-message
 	 (jmail-search--unbold-subject)))
      (setq new-path (jmail-search--rename-file path flags))
@@ -332,7 +333,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (jmail-search--set-property :flags flags)
        (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)
-       (jmail-search--update-flags)
+       (when jmail-search-show-flags
+	 (jmail-search--update-flags))
        (when jmail-search-bold-unread-message
 	 (jmail-search--bold-subject))))))
 
@@ -349,7 +351,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (jmail-search--set-property :flags flags)
        (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)
-       (jmail-search--update-flags)))))
+       (when jmail-search-show-flags
+	 (jmail-search--update-flags))))))
 
 (defun jmail-search--mark-as-unflagged ()
   (with-jmail-search-buffer
@@ -361,7 +364,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
      (when (member 'flagged flags)
        (setq flags (remove 'flagged flags))
        (jmail-search--set-property :flags flags)
-       (jmail-search--update-flags)
+       (when jmail-search-show-flags
+	 (jmail-search--update-flags))
        (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)))))
 
