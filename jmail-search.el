@@ -290,6 +290,16 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	  (rename-file old-path new-path))))
     new-path))
 
+(defun jmail-search--unbold-subject ()
+  (when-let* ((object (text-properties-at (point)))
+	      (subject-start (plist-get object :subject-start)))
+    (jmail-unbold-region subject-start (line-end-position))))
+
+(defun jmail-search--bold-subject ()
+  (when-let* ((object (text-properties-at (point)))
+	      (subject-start (plist-get object :subject-start)))
+    (jmail-bold-region subject-start (line-end-position))))
+
 (defun jmail-search--mark-as-read ()
   (with-jmail-search-buffer
    (when-let* ((point (line-beginning-position))
@@ -303,7 +313,9 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
      (when (member 'unread flags)
        (setq flags (remove 'unread flags))
        (jmail-search--set-property :flags flags)
-       (jmail-search--update-flags))
+       (jmail-search--update-flags)
+       (when jmail-search-bold-unread-message
+	 (jmail-search--unbold-subject)))
      (setq new-path (jmail-search--rename-file path flags))
      (jmail-search--set-property :path new-path))))
 
@@ -320,7 +332,9 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (jmail-search--set-property :flags flags)
        (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)
-       (jmail-search--update-flags)))))
+       (jmail-search--update-flags)
+       (when jmail-search-bold-unread-message
+	 (jmail-search--bold-subject))))))
 
 (defun jmail-search--mark-as-flagged ()
   (with-jmail-search-buffer
