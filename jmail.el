@@ -278,7 +278,7 @@
        (let ((beg (point)))
 	 (replace-match (format "(%d/\\1)" count))
 	 (if (> count 0)
-	     (jmail-bold-region beg (point))
+	     (jmail-bold-region beg (point) 'jmail-bold-region-face)
 	   (jmail-unbold-region beg (point))))))))
 
 (defun jmail--fetch-success-cb ()
