@@ -159,6 +159,8 @@
 
 (defun jmail-update-maildirs (maildirs success error)
   (unless (get-buffer-process jmail-update--buffer-name)
+    (setq jmail-update--success-cb success)
+    (setq jmail-update--error-cb error)
     (if (not jmail-sync-config-file)
 	(jmail-update--index)
       (when-let* ((config-data (jmail-update--config-data))
