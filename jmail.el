@@ -322,10 +322,9 @@
 (defun jmail--check-env ()
   (unless jmail-top-maildir
     (jmail-abort "Please set `jmail-top-maildir'"))
-  (unless jmail-sync-config-file
-    (jmail-abort "Please set `jmail-sync-config-file'"))
-  (unless (jmail-common-host jmail-top-maildir jmail-sync-config-file)
-    (jmail-abort "`jmail-top-maildir' and `jmail-sync-config-file' doesn't have common host"))
+  (when jmail-sync-config-file
+    (unless (jmail-common-host jmail-top-maildir jmail-sync-config-file)
+      (jmail-abort "`jmail-top-maildir' and `jmail-sync-config-file' doesn't have common host")))
   (unless jmail-smtp-config-file
     (jmail-abort "Please set `jmail-smtp-config-file'"))
   (unless jmail-queries

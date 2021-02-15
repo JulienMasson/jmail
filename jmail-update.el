@@ -151,7 +151,7 @@
   (unless (get-buffer-process jmail-update--buffer-name)
     (setq jmail-update--success-cb success)
     (setq jmail-update--error-cb error)
-    (if skip-sync
+    (if (or skip-sync (not jmail-sync-config-file))
 	(jmail-update--index)
       (when-let* ((all-channels (mapcar #'cdr (jmail-update--config-data)))
 		  (args (jmail-update--get-sync-args all-channels)))
@@ -159,11 +159,13 @@
 
 (defun jmail-update-maildirs (maildirs success error)
   (unless (get-buffer-process jmail-update--buffer-name)
-    (when-let* ((config-data (jmail-update--config-data))
-		(channels (delq nil (mapcar (lambda (maildir)
-					      (assoc-default maildir config-data))
-					    maildirs)))
-		(args (jmail-update--get-sync-args channels)))
-      (jmail-update--sync success error args))))
+    (if (not jmail-sync-config-file)
+	(jmail-update--index)
+      (when-let* ((config-data (jmail-update--config-data))
+		  (channels (delq nil (mapcar (lambda (maildir)
+						(assoc-default maildir config-data))
+					      maildirs)))
+		  (args (jmail-update--get-sync-args channels)))
+	(jmail-update--sync success error args)))))
 
 (provide 'jmail-update)
