@@ -241,32 +241,35 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	 (thread (jmail-search--thread object))
 	 (flags (jmail-search--flags object))
 	 (subject (jmail-search--subject object))
-	 flags-start)
+	 subject-start)
      (save-excursion
        (goto-char (point-max))
        (insert (format "%-11s %-16s  %s" date from (if thread thread "")))
-       (setq flags-start (point))
+       (setq subject-start (point))
+       ;; insert flags
+       (when jmail-search-show-flags
+	 (jmail-search--insert-flags (point) flags))
+       ;; insert subject
        (if (and jmail-search-bold-unread-message (member 'unread flags))
 	   (insert " " (propertize subject 'face 'bold))
 	 (insert " " subject))
-       (when jmail-search-show-flags
-	 (jmail-search--insert-flags flags-start flags)
-	 (setq object (append (list :flags-start flags-start) object)))
+       (setq object (append (list :subject-start subject-start) object))
        (add-text-properties (line-beginning-position) (line-end-position) object)
        (insert "\n")))))
 
 (defun jmail-search--update-flags ()
   (when-let* ((object (text-properties-at (point)))
-	      (flags-start (plist-get object :flags-start))
-	      (overlay (jmail-search--find-flags flags-start)))
-    (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
-    (delete-overlay overlay)
-    (jmail-search--insert-flags flags-start (jmail-search--flags object))))
+	      (start (plist-get object :subject-start)))
+    (when-let ((overlay (jmail-search--find-flags start)))
+      (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
+      (delete-overlay overlay))
+    (when-let ((flags (jmail-search--flags object)))
+      (jmail-search--insert-flags start flags))))
 
 (defun jmail-search--set-flag (flag)
   (when-let* ((props (text-properties-at (point)))
-	      (flags-start (plist-get props :flags-start)))
-    (jmail-search--insert-flags flags-start (list flag))))
+	      (start (plist-get props :subject-start)))
+    (jmail-search--insert-flags start (list flag))))
 
 (defun jmail-search--set-property (prop value)
   (put-text-property (line-beginning-position)
@@ -559,8 +562,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defun jmail-search--remove-overlay ()
   (when-let* ((object (text-properties-at (point)))
-	      (flags-start (plist-get object :flags-start))
-	      (overlay (jmail-search--find-flags flags-start)))
+	      (start (plist-get object :subject-start))
+	      (overlay (jmail-search--find-flags start)))
     (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
     (delete-overlay overlay)))
 
