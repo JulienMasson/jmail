@@ -105,19 +105,11 @@
   (with-current-buffer buffer
     (split-window-below jmail-split-window-size)))
 
-(defun jmail-bold-region (beg end)
-  (save-excursion
-    (when-let* ((extract (delete-and-extract-region beg end))
-		(str (substring-no-properties extract)))
-      (goto-char beg)
-      (insert (propertize str 'face 'jmail-bold-region-face)))))
+(defun jmail-bold-region (beg end &optional bold-face)
+  (set-text-properties beg end (list 'face (if bold-face bold-face 'bold))))
 
 (defun jmail-unbold-region (beg end)
-  (save-excursion
-    (when-let* ((extract (delete-and-extract-region beg end))
-		(str (substring-no-properties extract)))
-      (goto-char beg)
-      (insert str))))
+  (remove-text-properties beg end (list 'face 'bold)))
 
 (defun jmail-tramp-executable-find (program-name)
   (with-parsed-tramp-file-name default-directory nil
