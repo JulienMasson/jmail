@@ -218,14 +218,15 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
     svg))
 
 (defun jmail-search--insert-flags (start flags)
-  (let* ((svg-flags (jmail-search--svg-flags flags))
-	 (svg-str (mapconcat (lambda (svg-flag)
-			       (propertize "x" 'display svg-flag))
-			     svg-flags " "))
-	 (overlay (make-overlay start (+ start 1))))
-    (overlay-put overlay 'invisible t)
-    (overlay-put overlay 'before-string (format " %s " svg-str))
-    (add-to-list 'jmail-search--flags-overlays overlay)))
+  (when (cl-intersection flags (list 'unread 'flagged 'attach))
+    (let* ((svg-flags (jmail-search--svg-flags flags))
+	   (svg-str (mapconcat (lambda (svg-flag)
+				 (propertize "x" 'display svg-flag))
+			       svg-flags " "))
+	   (overlay (make-overlay start (+ start 1))))
+      (overlay-put overlay 'invisible t)
+      (overlay-put overlay 'before-string (format " %s" svg-str))
+      (add-to-list 'jmail-search--flags-overlays overlay))))
 
 (defun jmail-search--delete-all-overlays ()
   (with-jmail-search-buffer
