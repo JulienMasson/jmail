@@ -23,6 +23,7 @@
 
 ;;; Code:
 
+(require 'goto-addr)
 (require 'message)
 (require 'jmail-attachment)
 (require 'jmail-compose)
@@ -185,7 +186,8 @@
     (let ((limit (if jmail-view--html-view (jmail-eoh-mail-point) (point-max))))
       (while (and (not (eobp)) (< (point) limit))
 	(font-lock-fontify-region (line-beginning-position) (line-end-position))
-	(forward-line)))))
+	(forward-line)))
+    (goto-address-fontify (point-min) (point-max))))
 
 (defun jmail-view--insert-mail ()
   (when jmail-view--data
