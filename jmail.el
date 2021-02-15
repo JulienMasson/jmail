@@ -298,13 +298,13 @@
   (when jmail--fetch-refresh-timer
     (cancel-timer jmail--fetch-refresh-timer)))
 
-(defun jmail--start-fetch-refresh-timer (&optional skip-sync)
+(defun jmail--start-fetch-refresh-timer ()
   (setq jmail--fetch-refresh-timer
-	(run-at-time 1 jmail-fetch-refresh-every 'jmail--start-fetch-refresh skip-sync)))
+	(run-at-time 1 jmail-fetch-refresh-every 'jmail--start-fetch-refresh)))
 
-(defun jmail--restart-fetch-refresh-timer (&optional skip-sync)
+(defun jmail--restart-fetch-refresh-timer ()
   (jmail--stop-fetch-refresh-timer)
-  (jmail--start-fetch-refresh-timer skip-sync))
+  (jmail--start-fetch-refresh-timer))
 
 (defun jmail--maildir-name-list ()
   (let (maildir)
@@ -362,8 +362,8 @@
 
 (defun jmail-fetch-refresh-all (&optional skip-sync)
   (interactive)
-  (if jmail-fetch-refresh-every
-      (jmail--restart-fetch-refresh-timer skip-sync)
+  (if (and jmail-fetch-refresh-every (not skip-sync))
+      (jmail--restart-fetch-refresh-timer)
     (jmail--start-fetch-refresh skip-sync)))
 
 (defun jmail-unread-at-point ()
