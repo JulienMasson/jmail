@@ -182,13 +182,9 @@
   (setq-local font-lock-defaults '(jmail-font-lock t))
   (save-excursion
     (goto-char (point-min))
-    (let ((limit (if jmail-view--html-view
-		     (jmail-eoh-mail-point)
-		   (point-max))))
-      (while (and (not (eobp))
-		  (< (point) limit))
-	(font-lock-fontify-region (line-beginning-position)
-      				  (line-end-position))
+    (let ((limit (if jmail-view--html-view (jmail-eoh-mail-point) (point-max))))
+      (while (and (not (eobp)) (< (point) limit))
+	(font-lock-fontify-region (line-beginning-position) (line-end-position))
 	(forward-line)))))
 
 (defun jmail-view--insert-mail ()
