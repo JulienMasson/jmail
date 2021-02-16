@@ -121,7 +121,7 @@
 	(when (looking-at "^\\(.+\\)")
 	  (match-string 1))))))
 
-(defun jmail-read-prompt (prompt completions)
+(defun jmail-read-prompt (prompt completions &optional initial-contents)
   (let* ((func (lambda (string)
 		 (if (string-match "\\(^\\|.* (?\\)\\([^ ]*\\)$" string)
 		     (mapcar (lambda (compl)
@@ -132,7 +132,7 @@
 	 (minibuffer-completion-table (completion-table-dynamic func))
 	 (keymap (copy-keymap minibuffer-local-map)))
     (define-key keymap (kbd "TAB") 'minibuffer-complete)
-    (read-from-minibuffer prompt nil keymap)))
+    (read-from-minibuffer prompt initial-contents keymap)))
 
 (defun jmail-find-program (program-name)
   (if (tramp-tramp-file-p default-directory)
