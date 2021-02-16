@@ -66,8 +66,6 @@
 
 (defvar-local jmail-view--html-view nil)
 
-(defvar-local jmail-view--html-reply-level 0)
-
 ;;; Internal Functions
 
 (defmacro with-jmail-view-buffer (&rest body)
