@@ -799,7 +799,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   (interactive)
   (when jmail-search--current
     (let* ((query (plist-get jmail-search--current :query))
-	   (query (read-string "Search: " query))
+	   (query (jmail-read-prompt "Search: " jmail-search-fields query))
 	   (thread (plist-get jmail-search--current :thread))
 	   (related (plist-get jmail-search--current :related)))
       (jmail-search--run query thread related))))
