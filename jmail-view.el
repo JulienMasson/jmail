@@ -288,6 +288,7 @@
   (interactive)
   (with-jmail-view-buffer
    (let* ((account (jmail-view--autodetect-account))
+	  (sender (car (plist-get jmail-view--data :from)))
 	  (from (jmail-make-address-str (cdr account)))
 	  (from-email (cddr account))
 	  (to (jmail-view--reply-get-to from-email))
@@ -305,7 +306,8 @@
      (message-sort-headers)
      (message-hide-headers)
      (when plain-text
-       (jmail-view--insert-reply-text from plain-text))
+       (jmail-view--insert-reply-text (jmail-make-address-str sender)
+				      plain-text))
      (jmail-compose-mode)
      (jmail-company-setup)
      (jmail-compose-setup-send-mail)
