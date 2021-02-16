@@ -127,6 +127,21 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   :type 'list
   :group 'jmail)
 
+(defcustom jmail-search-date-width 11
+  "Set max width for date field in search view"
+  :type 'number
+  :group 'jmail)
+
+(defcustom jmail-search-date-format "%F"
+  "Date format used in search view"
+  :type 'string
+  :group 'jmail)
+
+(defcustom jmail-search-from-width 16
+  "Set max width for from field in search view"
+  :type 'number
+  :group 'jmail)
+
 ;;; Internal Variables
 
 (defconst jmail-search--process-buffer-name "*jmail-search-process*")
@@ -161,9 +176,12 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (let ((inhibit-read-only t))
 	 ,@body))))
 
+(defun jmail-search--fmt ()
+  (format "%%-%ds %%-%ds %%s" jmail-search-date-width jmail-search-from-width))
+
 (defun jmail-search--insert-header-line ()
   (with-jmail-search-buffer
-   (setq header-line-format (format " %-11s %-16s  %s" "Date" "From" "Subject"))
+   (setq header-line-format (format (jmail-search--fmt) " Date" " From" " Subject"))
    (force-mode-line-update)))
 
 (defun jmail-search--subject (object)
@@ -187,15 +205,17 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	       (format "  ┃%s┣━▶" spaces)))))))
 
 (defun jmail-search--date (object)
-  (propertize (format-time-string "%F" (plist-get object :date))
-	      'face 'font-lock-comment-face))
+  (let* ((date (plist-get object :date))
+	 (str (format-time-string jmail-search-date-format date)))
+    (propertize (truncate-string-to-width str jmail-search-date-width)
+		'face 'font-lock-comment-face)))
 
 (defun jmail-search--from (object)
   (if-let ((from (car (plist-get object :from))))
       (if-let ((name (car from)))
-	  (propertize (truncate-string-to-width name 16)
+	  (propertize (truncate-string-to-width name jmail-search-from-width)
 		      'face 'font-lock-variable-name-face)
-	(propertize (truncate-string-to-width (cdr from) 16)
+	(propertize (truncate-string-to-width (cdr from) jmail-search-from-width)
 		    'face 'font-lock-variable-name-face))
     (propertize "unknown" 'face 'font-lock-variable-name-face)))
 
@@ -244,7 +264,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	 subject-start)
      (save-excursion
        (goto-char (point-max))
-       (insert (format "%-11s %-16s  %s" date from (if thread thread "")))
+       (insert (format (jmail-search--fmt) date from (if thread thread "")))
        (setq subject-start (point))
        ;; insert flags
        (when jmail-search-show-flags
