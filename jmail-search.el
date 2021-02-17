@@ -329,19 +329,20 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	  (object (text-properties-at point))
 	  (path (plist-get object :path))
 	  (flags (plist-get object :flags))
-	  (new-path path))
-     (when (member 'new flags)
-       (setq flags (remove 'new flags))
-       (jmail-search--set-property :flags flags))
-     (when (member 'unread flags)
-       (setq flags (remove 'unread flags))
-       (jmail-search--set-property :flags flags)
-       (when jmail-search-show-flags
-	 (jmail-search--update-flags))
-       (when jmail-search-bold-unread-message
-	 (jmail-search--unbold-subject)))
-     (setq new-path (jmail-search--rename-file path flags))
-     (jmail-search--set-property :path new-path))))
+	  new-path)
+     (when path
+       (when (member 'new flags)
+	 (setq flags (remove 'new flags))
+	 (jmail-search--set-property :flags flags))
+       (when (member 'unread flags)
+	 (setq flags (remove 'unread flags))
+	 (jmail-search--set-property :flags flags)
+	 (when jmail-search-show-flags
+	   (jmail-search--update-flags))
+	 (when jmail-search-bold-unread-message
+	   (jmail-search--unbold-subject)))
+       (setq new-path (jmail-search--rename-file path flags))
+       (jmail-search--set-property :path new-path)))))
 
 (defun jmail-search--mark-as-unread ()
   (with-jmail-search-buffer
