@@ -25,6 +25,7 @@
 
 (require 'jmail-actions)
 (require 'jmail-view)
+(require 'jmail-view-thread)
 
 ;;; Mode
 
@@ -576,6 +577,14 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	(list start end))
     (list (point) (point))))
 
+(defun jmail-search--paths-from-thread ()
+  (let ((paths))
+    (jmail-search--foreach-line-thread
+     (when-let* ((object (text-properties-at (point)))
+		 (path (plist-get object :path)))
+       (add-to-list 'paths path t)))
+    paths))
+
 (defun jmail-search--find-fold-overlay (start end)
   (cl-find-if (lambda (ov)
 		(and (<= (overlay-start ov) start)
@@ -864,10 +873,13 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 (defun jmail-search-enter ()
   (interactive)
   (with-jmail-search-buffer
-   (jmail-search--mark-as-read)
    (when-let* ((object (text-properties-at (point)))
-	       (path (plist-get object :path)))
-     (jmail-view path (current-buffer)))))
+	       (current-path (plist-get object :path))
+	       (thread-paths (jmail-search--paths-from-thread)))
+     (if jmail-view-thread-default-view
+	 (jmail-view-thread current-path thread-paths (current-buffer))
+       (jmail-search--mark-as-read)
+       (jmail-view current-path (current-buffer))))))
 
 (defun jmail-search-show-this-thread ()
   (interactive)
