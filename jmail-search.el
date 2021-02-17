@@ -533,20 +533,33 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (previous-line)
       (jmail-search--goto-root-thread))))
 
+(defmacro save-fold-overlay (&rest body)
+  `(lexical-let ((overlay (jmail-search--find-fold-overlay (line-end-position)
+							   (line-end-position)))
+		 start end)
+     (when overlay
+       (setq start (overlay-start overlay))
+       (setq end (overlay-end overlay))
+       (jmail-search--remove-fold-overlay overlay))
+     ,@body
+     (when (and start end)
+       (jmail-search--add-fold-overlay start end))))
+
 (defmacro jmail-search--foreach-line-thread (&rest body)
   `(with-jmail-search-buffer
     (save-excursion
-      (lexical-let (start end)
-	(jmail-search--goto-root-thread)
-	(setq start (line-beginning-position))
-	,@body
-	(next-line)
-	(while (and (jmail-search--thread-level-at-point)
-		    (not (zerop (jmail-search--thread-level-at-point))))
-	  ,@body
-	  (next-line))
-	(setq end (line-beginning-position))
-	(list start end)))))
+      (save-fold-overlay
+       (lexical-let (start end)
+	 (jmail-search--goto-root-thread)
+	 (setq start (line-beginning-position))
+	 ,@body
+	 (next-line)
+	 (while (and (jmail-search--thread-level-at-point)
+		     (not (zerop (jmail-search--thread-level-at-point))))
+	   ,@body
+	   (next-line))
+	 (setq end (line-beginning-position))
+	 (list start end))))))
 
 (defmacro jmail-search--foreach-line-region (&rest body)
   `(with-jmail-search-buffer
