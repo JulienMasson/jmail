@@ -60,9 +60,7 @@
 
 (defconst jmail-view--buffer-name "*jmail-view*")
 
-(defconst jmail-view--prompt-all-str "all")
-
-(defvar-local jmail-view--data nil)
+(defvar-local jmail-view--handler nil)
 
 (defvar-local jmail-view--html-view nil)
 
@@ -73,6 +71,10 @@
      (with-current-buffer jmail-view--buffer-name
        (let ((inhibit-read-only t))
 	 ,@body))))
+
+(defun jmail-view--data-at-point ()
+  (when-let ((props (text-properties-at (point))))
+    (plist-get props :jmail-view-data)))
 
 (defun jmail-view--setup-buffer (buffer)
   (with-current-buffer (get-buffer-create jmail-view--buffer-name)
@@ -107,12 +109,12 @@
       (insert html)
       (shr-render-region beg (point)))))
 
-(defun jmail-view--address-str (field)
-  (when-let ((data (plist-get jmail-view--data field)))
-    (mapconcat #'jmail-make-address-str data ", ")))
+(defun jmail-view--address-str (data field)
+  (when-let ((address (plist-get data field)))
+    (mapconcat #'jmail-make-address-str address ", ")))
 
-(defun jmail-view--date-str ()
-  (when-let ((date (plist-get jmail-view--data :date)))
+(defun jmail-view--date-str (data)
+  (when-let ((date (plist-get data :date)))
     (format-time-string "%a, %e %b %Y %T %z" date)))
 
 (defun jmail-view--add-attachments (msg-path attachments)
@@ -124,8 +126,8 @@
 	(mapc #'org-msg-attach-attach files)
       (mapc #'mml-attach-file files))))
 
-(defun jmail-view--get-attachments ()
-  (when-let* ((parts (plist-get jmail-view--data :parts))
+(defun jmail-view--get-attachments (data)
+  (when-let* ((parts (plist-get data :parts))
 	      (attachments (seq-filter (lambda (elem)
 					 (plist-get elem :attachment))
 				       parts)))
@@ -134,25 +136,25 @@
 	    attachments)))
 
 (defun jmail-view--attachments-prompt ()
-  (when-let ((attachments (jmail-view--get-attachments)))
-    (append (list jmail-view--prompt-all-str)
-	    (mapcar #'car attachments))))
+  (when-let* ((data (jmail-view--data-at-point))
+	      (attachments (jmail-view--get-attachments data)))
+    (append (list "all") (mapcar #'car attachments))))
 
 (defun jmail-view--attachments-str ()
-  (when-let ((attachments (jmail-view--get-attachments)))
+  (when-let* ((data (jmail-view--data-at-point))
+	      (attachments (jmail-view--get-attachments data)))
     (mapconcat #'car attachments ", ")))
 
-(defun jmail-view--insert-contents ()
-  (let ((from (jmail-view--address-str :from))
-	(to (jmail-view--address-str :to))
-	(cc (jmail-view--address-str :cc))
-	(mailing-list (plist-get jmail-view--data :mailing-list))
-	(subject (plist-get jmail-view--data :subject))
-	(date (jmail-view--date-str))
+(defun jmail-view--insert-contents (data)
+  (let ((from (jmail-view--address-str data :from))
+	(to (jmail-view--address-str data :to))
+	(cc (jmail-view--address-str data :cc))
+	(mailing-list (plist-get data :mailing-list))
+	(subject (plist-get data :subject))
+	(date (jmail-view--date-str data))
 	(attachments (jmail-view--attachments-str))
-	(plain-text (plist-get jmail-view--data :body-txt))
-	(html (plist-get jmail-view--data :body-html)))
-    (goto-char (point-min))
+	(plain-text (format "\n%s\n" (plist-get data :body-txt)))
+	(html (plist-get data :body-html)))
     (cl-macrolet ((insert-header (field)
 		   `(when ,field
 		      (message-insert-header ',field ,field)
@@ -177,37 +179,36 @@
 	     (setq jmail-view--html-view nil))
 	   (insert plain-text)))))
 
-(defun jmail-view--fontify-mail ()
+(defun jmail-view--fontify-mail (start)
   (setq-local font-lock-defaults '(jmail-font-lock t))
   (save-excursion
-    (goto-char (point-min))
+    (goto-char start)
     (let ((limit (if jmail-view--html-view (jmail-eoh-mail-point) (point-max))))
       (while (and (not (eobp)) (< (point) limit))
 	(font-lock-fontify-region (line-beginning-position) (line-end-position))
 	(forward-line)))
-    (goto-address-fontify (point-min) (point-max))))
+    (goto-address-fontify start (point-max))))
 
-(defun jmail-view--insert-mail ()
-  (when jmail-view--data
-    (with-jmail-view-buffer
-     (erase-buffer)
-     (jmail-view--insert-contents)
-     (unless jmail-view--html-view
-       (jmail-view--clean-body))
-     (jmail-view--fontify-mail)
-     (set-buffer-modified-p nil)
-     (goto-char (point-min)))))
+(defun jmail-view--insert-mail (data)
+  (with-jmail-view-buffer
+   (erase-buffer)
+   (jmail-view--insert-contents data)
+   (unless jmail-view--html-view
+     (jmail-view--clean-body))
+   (add-text-properties (point-min) (point-max) (list :jmail-view-data data))
+   (jmail-view--fontify-mail (point-min))
+   (set-buffer-modified-p nil)
+   (goto-char (point-min))))
 
 (defun jmail-view--process-sentinel (process status)
   (when (eq (process-exit-status process) 0)
-    (let* ((buffer (process-buffer process))
-	   (object (jmail-extract-sexp-object buffer)))
+    (when-let* ((buffer (process-buffer process))
+		(object (jmail-extract-sexp-object buffer))
+		(handler (with-current-buffer buffer jmail-view--handler)))
       (kill-buffer buffer)
-      (with-jmail-view-buffer
-       (setq jmail-view--data object)
-       (jmail-view--insert-mail)))))
+      (funcall handler object))))
 
-(defun jmail-view--get-mail-data (path)
+(defun jmail-view--get-mail-data (path handler)
   (when-let* ((default-directory jmail-top-maildir)
 	      (program (jmail-find-program jmail-index-program))
 	      (args (list "view" "--nocolor" "--format=sexp" path))
@@ -215,6 +216,7 @@
 	      (process (apply 'start-file-process "jmail-view" buffer
 			      program args)))
     (with-current-buffer buffer
+      (setq jmail-view--handler handler)
       (erase-buffer))
     (set-process-filter process 'jmail-process-filter)
     (set-process-sentinel process 'jmail-view--process-sentinel)))
@@ -259,10 +261,11 @@
       (insert "Cc: " cc "\n"))
     (insert plain-text)))
 
-(defun jmail-view--autodetect-account ()
+(defun jmail-view--autodetect-account (data)
   (if-let* ((accounts (jmail-get-accounts jmail-smtp-config-file))
 	    (accounts-address (mapcar #'cddr accounts))
-	    (to (plist-get jmail-view--data :to))
+	    (props (text-properties-at (point)))
+	    (to (plist-get data :to))
 	    (to-address (mapcar #'cdr to))
 	    (address (car (cl-intersection accounts-address to-address
 					   :test #'string=))))
@@ -274,9 +277,9 @@
 					 (mapcar #'car accounts))))
       (assoc account accounts))))
 
-(defun jmail-view--reply-get-to (from-email)
-  (when-let* ((to (append (plist-get jmail-view--data :from)
-			  (plist-get jmail-view--data :to)))
+(defun jmail-view--reply-get-to (data from-email)
+  (when-let* ((to (append (plist-get data :from)
+			  (plist-get data :to)))
 	      (to-list (mapcar #'jmail-make-address-str to)))
     (string-join (seq-remove (lambda (elem)
 			       (string-match from-email elem))
@@ -296,16 +299,16 @@
 (defun jmail-view-reply ()
   (interactive)
   (with-jmail-view-buffer
-   (let* ((account (jmail-view--autodetect-account))
-	  (sender (car (plist-get jmail-view--data :from)))
+   (let* ((data (jmail-view--data-at-point))
+	  (account (jmail-view--autodetect-account data))
+	  (sender (car (plist-get data :from)))
 	  (from (jmail-make-address-str (cdr account)))
 	  (from-email (cddr account))
-	  (to (jmail-view--reply-get-to from-email))
-	  (cc (jmail-view--address-str :cc))
-	  (subject (message-simplify-subject
-		    (plist-get jmail-view--data :subject)))
-	  (plain-text (plist-get jmail-view--data :body-txt))
-	  (in-reply-to (plist-get jmail-view--data :message-id)))
+	  (to (jmail-view--reply-get-to data from-email))
+	  (cc (jmail-view--address-str data :cc))
+	  (subject (message-simplify-subject (plist-get data :subject)))
+	  (plain-text (plist-get data :body-txt))
+	  (in-reply-to (plist-get data :message-id)))
      (message-pop-to-buffer (message-buffer-name "reply" to))
      (message-setup `((From . ,from)
 		      (To . ,to)
@@ -326,19 +329,20 @@
 (defun jmail-view-forward ()
   (interactive)
   (with-jmail-view-buffer
-   (let* ((account (jmail-view--autodetect-account))
+   (let* ((data (jmail-view--data-at-point))
+	  (account (jmail-view--autodetect-account data))
 	  (from (jmail-make-address-str (cdr account)))
 	  (from-email (cddr account))
-	  (from-fwd (jmail-view--address-str :from))
-	  (date-fwd (jmail-view--date-str))
-	  (subject-fwd (plist-get jmail-view--data :subject))
-	  (to-fwd (jmail-view--address-str :to))
-	  (cc-fwd (jmail-view--address-str :cc))
+	  (from-fwd (jmail-view--address-str data :from))
+	  (date-fwd (jmail-view--date-str data))
+	  (subject-fwd (plist-get data :subject))
+	  (to-fwd (jmail-view--address-str data :to))
+	  (cc-fwd (jmail-view--address-str data :cc))
 	  (subject (message-simplify-subject subject-fwd))
-	  (plain-text (plist-get jmail-view--data :body-txt))
-	  (in-reply-to (plist-get jmail-view--data :in-reply-to))
-	  (attachments (jmail-view--get-attachments))
-	  (msg-path (plist-get jmail-view--data :path)))
+	  (plain-text (plist-get data :body-txt))
+	  (in-reply-to (plist-get data :in-reply-to))
+	  (attachments (jmail-view--get-attachments data))
+	  (msg-path (plist-get data :path)))
      (message-pop-to-buffer (generate-new-buffer-name "*unsent forward*"))
      (message-setup `((From . ,from)
 		      (To . "")
@@ -361,28 +365,29 @@
   (interactive (list (completing-read "Save: "
 				      (jmail-view--attachments-prompt))
 		     (read-directory-name "Path: ")))
-  (when-let ((msg-path (plist-get jmail-view--data :path)))
-    (if (string= attachments jmail-view--prompt-all-str)
+  (when-let* ((data (jmail-view--data-at-point))
+	      (msg-path (plist-get data :path))
+	      (attachments-list (jmail-view--get-attachments data)))
+    (if (string= attachments "all")
 	(jmail-attachment-save-all msg-path outdir)
-      (jmail-attachment-save msg-path
-			     (assoc-default attachments
-					    (jmail-view--get-attachments))
+      (jmail-attachment-save msg-path (assoc-default attachments attachments-list)
 			     outdir))))
 
 (defun jmail-view-toggle-html ()
   (interactive)
   (with-jmail-view-buffer
    (setq jmail-view--html-view (not jmail-view--html-view))
-   (jmail-view--insert-mail)))
+   (jmail-view--insert-mail (jmail-view--data-at-point))))
 
 (defun jmail-view-open-html ()
   (interactive)
-  (let* ((html (plist-get jmail-view--data :body-html))
+  (let* ((data (jmail-view--data-at-point))
+	 (html (plist-get data :body-html))
 	 (dir (make-temp-file "jmail-view-" t))
 	 (default-directory dir)
 	 (file (concat dir "/file.html"))
-	 (msg-path (plist-get jmail-view--data :path))
-	 (attachments (jmail-view--get-attachments)))
+	 (msg-path (plist-get data :path))
+	 (attachments (jmail-view--get-attachments data)))
     (when html
       (with-temp-file file
 	(insert html)
@@ -401,10 +406,10 @@
 
 (defun jmail-view (path buffer)
   (if (get-buffer jmail-view--buffer-name)
-      (switch-to-buffer-other-window jmail-view--buffer-name)
+      (pop-to-buffer jmail-view--buffer-name)
     (jmail-view--setup-buffer buffer))
   (with-jmail-view-buffer
    (setq jmail-view--html-view jmail-view-html-default-view))
-  (jmail-view--get-mail-data path))
+  (jmail-view--get-mail-data path #'jmail-view--insert-mail))
 
 (provide 'jmail-view)
