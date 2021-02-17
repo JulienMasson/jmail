@@ -162,8 +162,6 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defvar-local jmail-search--fold-overlays nil)
 
-(defconst jmail-search--overlay-string " [...]")
-
 (defvar jmail-search--saved nil)
 
 (defvar jmail-search--saved-index 0)
@@ -593,8 +591,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
     (add-to-list 'jmail-search--fold-overlays overlay)
     (overlay-put overlay 'invisible t)
     (overlay-put overlay 'before-string
-		 (propertize jmail-search--overlay-string
-			     'face 'jmail-search-overlay-fold-face))))
+		 (propertize " [...]" 'face 'jmail-search-overlay-fold-face))))
 
 (defun jmail-search--remove-overlay ()
   (when-let* ((object (text-properties-at (point)))
