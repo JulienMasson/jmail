@@ -917,14 +917,14 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   (interactive)
   (with-jmail-search-buffer
    (let* ((object (text-properties-at (point)))
-	  (current-path (plist-get object :path))
 	  (thread (plist-get object :thread)))
      (if (and jmail-view-thread-default-view thread
 	      (not (plist-get thread :empty-parent)))
-	 (jmail-view-thread current-path (jmail-search--paths-from-thread)
+	 (jmail-view-thread (jmail-search--path)
+			    (jmail-search--paths-from-thread)
 			    (current-buffer))
        (jmail-search--mark-as-read)
-       (jmail-view current-path (current-buffer))))))
+       (jmail-view (jmail-search--path) (current-buffer))))))
 
 (defun jmail-search-show-this-thread ()
   (interactive)
