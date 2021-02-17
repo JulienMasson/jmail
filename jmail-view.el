@@ -153,7 +153,7 @@
 	(subject (plist-get data :subject))
 	(date (jmail-view--date-str data))
 	(attachments (jmail-view--attachments-str))
-	(plain-text (format "\n%s\n" (plist-get data :body-txt)))
+	(plain-text (plist-get data :body-txt))
 	(html (plist-get data :body-html)))
     (cl-macrolet ((insert-header (field)
 		   `(when ,field
@@ -169,7 +169,7 @@
     (cond ((and html plain-text)
 	   (if jmail-view--html-view
 	       (jmail-view--insert-html html)
-	     (insert plain-text)))
+	     (insert "\n" plain-text "\n")))
 	  ((and html (not plain-text))
 	   (unless jmail-view--html-view
 	     (setq jmail-view--html-view t))
@@ -177,7 +177,7 @@
 	  ((and (not html) plain-text)
 	   (when jmail-view--html-view
 	     (setq jmail-view--html-view nil))
-	   (insert plain-text)))))
+	   (insert "\n" plain-text "\n")))))
 
 (defun jmail-view--fontify-mail (start)
   (setq-local font-lock-defaults '(jmail-font-lock t))
