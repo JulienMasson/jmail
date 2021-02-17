@@ -269,9 +269,9 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (when jmail-search-show-flags
 	 (jmail-search--insert-flags (point) flags))
        ;; insert subject
-       (if (and jmail-search-bold-unread-message (member 'unread flags))
-	   (insert " " (propertize subject 'face 'bold))
-	 (insert " " subject))
+       (when (and jmail-search-bold-unread-message (member 'unread flags))
+	 (setq subject (propertize subject 'face 'bold)))
+       (insert " " subject)
        (setq object (append (list :subject-start subject-start) object))
        (add-text-properties (line-beginning-position) (line-end-position) object)
        (insert "\n")))))
