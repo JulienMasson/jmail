@@ -284,6 +284,15 @@
 
 ;;; External Functions
 
+(defun jmail-view-eoh-mail-point ()
+  (let* ((props (text-properties-at (point)))
+	 (header (plist-get props :jmail-view-header))
+	 (start (if header header (point-min))))
+    (save-excursion
+      (goto-char start)
+      (re-search-forward "^\\([:\n]\\|[^: \t\n]+[ \t\n]\\)" nil t)
+      (point))))
+
 (defun jmail-view-reply ()
   (interactive)
   (with-jmail-view-buffer

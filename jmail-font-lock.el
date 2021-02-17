@@ -67,17 +67,13 @@
 
 (defun jmail-font-lock--diff-beginning ()
   (save-excursion
-    (goto-char (point-max))
-    (while (re-search-backward "^diff \-\-git" nil t))
-    (point)))
+    (goto-char (jmail-view-eoh-mail-point))
+    (re-search-forward "^diff \-\-git" nil t)))
 
 (defun jmail-font-lock--diff-matcher (regexp)
   `(lambda (limit)
-     (let ((body-beg (jmail-eoh-mail-point))
-	   (diff-beg (jmail-font-lock--diff-beginning))
-	   (beg (point)))
-       (and (> beg body-beg)
-	    (> beg diff-beg)
+     (when-let ((diff-beg (jmail-font-lock--diff-beginning)))
+       (and (> (point) diff-beg)
 	    (re-search-forward ,regexp limit t)))))
 
 (defun jmail-font-lock--cited-face ()
@@ -89,9 +85,15 @@
 
 ;;; External Variables
 
+(defun jmail-message-match-to-eoh (_limit)
+  (let ((eoh (jmail-view-eoh-mail-point)))
+    (when (< (point) eoh)
+      (set-match-data (list (point) eoh))
+      (point))))
+
 (defvar jmail-font-lock-message
   (let ((content "[ \t]*\\(.+\\(\n[ \t].*\\)*\\)\n?"))
-    `((message-match-to-eoh
+    `((jmail-message-match-to-eoh
        (,(concat "^\\([Tt]o:\\)" content)
 	(progn (goto-char (match-beginning 0)) (match-end 0)) nil
 	(1 'message-header-name)
@@ -136,10 +138,9 @@
 
 (defvar jmail-font-lock-cited
   `(((lambda (limit)
-       (let ((body-beg (jmail-eoh-mail-point))
-	     (regexp (concat "^\\(" message-cite-prefix-regexp "\\).*"))
-	     (beg (point)))
-	 (and (> beg body-beg)
+       (let ((body-beg (jmail-view-eoh-mail-point))
+	     (regexp (concat "^\\(" message-cite-prefix-regexp "\\).*")))
+	 (and (> (point) body-beg)
 	      (re-search-forward regexp limit t))))
      (0 (jmail-font-lock--cited-face)))))
 
