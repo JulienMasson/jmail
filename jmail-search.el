@@ -608,12 +608,32 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   (setq jmail-search--fold-overlays (remove overlay jmail-search--fold-overlays))
   (delete-overlay overlay))
 
+(defun jmail-search--fold-prefix (start end subject)
+  (let (prefix (unread 0) (total 0))
+    (save-excursion
+      (goto-char start)
+      (while (< (point) end)
+	(cl-incf total)
+	(when-let ((props (text-properties-at (point)))
+		   (flags (jmail-search--flags props)))
+	  (when (member 'unread flags)
+	    (cl-incf unread)))
+	(next-line))
+      (when (and jmail-search-bold-unread-message
+		 (> unread 0))
+	(setq subject (propertize subject 'face 'bold)))
+      (setq prefix (propertize (format " [%d/%d] " unread total) 'face
+			       (if (> unread 0) 'error 'jmail-search-overlay-fold-face)))
+      (concat prefix subject))))
+
 (defun jmail-search--add-fold-overlay (start end)
-  (let ((overlay (make-overlay start end)))
+  (let* ((object (text-properties-at (point)))
+	 (subject (plist-get object :subject))
+	 (prefix (jmail-search--fold-prefix start end subject))
+	 (overlay (make-overlay start end)))
     (add-to-list 'jmail-search--fold-overlays overlay)
     (overlay-put overlay 'invisible t)
-    (overlay-put overlay 'before-string
-		 (propertize " [...]" 'face 'jmail-search-overlay-fold-face))))
+    (overlay-put overlay 'before-string prefix)))
 
 (defun jmail-search--remove-overlay ()
   (when-let* ((start (jmail-search--subject-start))
