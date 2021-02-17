@@ -776,12 +776,11 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 (defun jmail-search-fold-unfold-all-thread ()
   (interactive)
   (if jmail-search--fold-overlays
-      (mapc #'jmail-search--remove-fold-overlay
-	    jmail-search--fold-overlays)
+      (mapc #'jmail-search--remove-fold-overlay jmail-search--fold-overlays)
     (save-excursion
       (goto-char (point-min))
       (while (< (point) (point-max))
-	(jmail-search-toggle-folding-thread)
+	(jmail-search-fold-unfold-thread)
 	(line-move 1)))))
 
 (defun jmail-search-refresh ()
