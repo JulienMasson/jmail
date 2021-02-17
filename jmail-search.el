@@ -195,6 +195,10 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   (when-let ((object (text-properties-at (point))))
     (plist-get object :subject-start)))
 
+(defun jmail-search--path ()
+  (when-let ((object (text-properties-at (point))))
+    (plist-get object :path)))
+
 (defun jmail-search--thread (object)
   (when-let ((thread (plist-get object :thread)))
     (let* ((level (plist-get thread :level))
@@ -593,8 +597,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 (defun jmail-search--paths-from-thread ()
   (let ((paths))
     (jmail-search--foreach-line-thread
-     (when-let* ((object (text-properties-at (point)))
-		 (path (plist-get object :path)))
+     (when-let ((path (jmail-search--path)))
        (add-to-list 'paths path t)))
     paths))
 
@@ -658,8 +661,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defun jmail-search--delete-message ()
   (with-jmail-search-buffer
-   (when-let* ((object (text-properties-at (point)))
-	       (path (plist-get object :path)))
+   (when-let ((path (jmail-search--path)))
      (delete-file path))))
 
 (defun jmail-search--read-uidvalidity (dir)
@@ -682,8 +684,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defun jmail-search--move-message (dest-dir)
   (with-jmail-search-buffer
-   (when-let* ((object (text-properties-at (point)))
-	       (path (plist-get object :path))
+   (when-let* ((path (jmail-search--path))
 	       (src-dir (expand-file-name (concat path "/../../")))
 	       (dest-uid (jmail-search--read-uidvalidity dest-dir))
 	       (new-path (replace-regexp-in-string
@@ -702,8 +703,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
      (save-excursion
        (goto-char (point-min))
        (while (not (eobp))
-	 (when-let* ((object (text-properties-at (point)))
-		     (path (plist-get object :path)))
+	 (when-let ((path (jmail-search--path)))
 	   (if (string= path target-path)
 	       (throw 'found (point))
 	     (next-line))))))))
