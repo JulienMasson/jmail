@@ -664,6 +664,18 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 ;;; External Functions
 
+(defun jmail-search-find-path (target-path)
+  (with-jmail-search-buffer
+   (catch 'found
+     (save-excursion
+       (goto-char (point-min))
+       (while (not (eobp))
+	 (when-let* ((object (text-properties-at (point)))
+		     (path (plist-get object :path)))
+	   (if (string= path target-path)
+	       (throw 'found (point))
+	     (next-line))))))))
+
 (defun jmail-search-delete-at-point-or-region (confirm)
   (interactive (list (yes-or-no-p (if (region-active-p)
 				      "Delete all messages from region: "

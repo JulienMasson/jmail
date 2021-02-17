@@ -84,7 +84,9 @@
        (set-buffer-modified-p nil)
        (jmail-view-thread--insert-mails target-path paths))
      (if (string= target-path (plist-get data :path))
-	 (goto-char header)
+	 (progn
+	   (goto-char header)
+	   (jmail-view-thread--mark-as-read))
        (jmail-view-thread--add-fold-overlay data start end)))))
 
 (defun jmail-view-thread--insert-mails (target-path paths)
@@ -135,6 +137,30 @@
    (setq jmail-view-thread--fold-overlays nil)
    (erase-buffer)))
 
+(defun jmail-view-thread--mark-as-read ()
+  (let* ((props (text-properties-at (point)))
+	 (data (plist-get props :jmail-view-data))
+	 (flags (plist-get data :flags))
+	 (start (plist-get props :jmail-view-start))
+	 (end (plist-get props :jmail-view-end)))
+    (when (member 'unread flags)
+      (plist-put data :flags (remove 'unread flags))
+      (put-text-property start end :jmail-view-data data)
+      (with-jmail-search-buffer
+       (save-excursion
+	 (when-let* ((path (plist-get data :path))
+		     (pos (jmail-search-find-path path)))
+	   (goto-char pos)
+	   (jmail-search--mark-as-read)))))))
+
+(defun jmail-view-thread--mark-all-as-read ()
+  (save-excursion
+    (goto-char (- (point-max) 1))
+    (while (not (bobp))
+      (jmail-view-thread--mark-as-read)
+      (jmail-view-thread-previous))
+    (jmail-view-thread--mark-as-read)))
+
 ;;; External Functions
 
 (defun jmail-view-thread-next ()
@@ -180,13 +206,16 @@
 	    (header (plist-get props :jmail-view-header)))
       (progn
 	(jmail-view-thread--remove-fold-overlay overlay)
-	(goto-char header))
+	(goto-char header)
+	(jmail-view-thread--mark-as-read))
     (jmail-view-thread--fold-current-mail)))
 
 (defun jmail-view-thread-fold-unfold-all-mails ()
   (interactive)
   (if jmail-view-thread--fold-overlays
-      (mapc #'jmail-view-thread--remove-fold-overlay jmail-view-thread--fold-overlays)
+      (progn
+	(mapc #'jmail-view-thread--remove-fold-overlay jmail-view-thread--fold-overlays)
+	(jmail-view-thread--mark-all-as-read))
     (save-excursion
       (goto-char (point-min))
       (while (< (point) (point-max))
