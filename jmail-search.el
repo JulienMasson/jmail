@@ -191,6 +191,10 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 (defun jmail-search--flags (object)
   (plist-get object :flags))
 
+(defun jmail-search--subject-start ()
+  (when-let ((object (text-properties-at (point))))
+    (plist-get object :subject-start)))
+
 (defun jmail-search--thread (object)
   (when-let ((thread (plist-get object :thread)))
     (let* ((level (plist-get thread :level))
@@ -277,8 +281,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (insert "\n")))))
 
 (defun jmail-search--update-flags ()
-  (when-let* ((object (text-properties-at (point)))
-	      (start (plist-get object :subject-start)))
+  (when-let ((start (jmail-search--subject-start)))
     (when-let ((overlay (jmail-search--find-flags start)))
       (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
       (delete-overlay overlay))
@@ -286,8 +289,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (jmail-search--insert-flags start flags))))
 
 (defun jmail-search--set-flag (flag)
-  (when-let* ((props (text-properties-at (point)))
-	      (start (plist-get props :subject-start)))
+  (when-let ((start (jmail-search--subject-start)))
     (jmail-search--insert-flags start (list flag))))
 
 (defun jmail-search--set-property (prop value)
@@ -310,14 +312,12 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
     new-path))
 
 (defun jmail-search--unbold-subject ()
-  (when-let* ((object (text-properties-at (point)))
-	      (subject-start (plist-get object :subject-start)))
-    (jmail-unbold-region subject-start (line-end-position))))
+  (when-let ((start (jmail-search--subject-start)))
+    (jmail-unbold-region start (line-end-position))))
 
 (defun jmail-search--bold-subject ()
-  (when-let* ((object (text-properties-at (point)))
-	      (subject-start (plist-get object :subject-start)))
-    (jmail-bold-region subject-start (line-end-position))))
+  (when-let ((start (jmail-search--subject-start)))
+    (jmail-bold-region start (line-end-position))))
 
 (defun jmail-search--mark-as-read ()
   (with-jmail-search-buffer
@@ -616,8 +616,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 		 (propertize " [...]" 'face 'jmail-search-overlay-fold-face))))
 
 (defun jmail-search--remove-overlay ()
-  (when-let* ((object (text-properties-at (point)))
-	      (start (plist-get object :subject-start))
+  (when-let* ((start (jmail-search--subject-start))
 	      (overlay (jmail-search--find-flags start)))
     (setq jmail-search--flags-overlays (remove overlay jmail-search--flags-overlays))
     (delete-overlay overlay)))
