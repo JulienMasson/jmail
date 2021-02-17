@@ -45,7 +45,7 @@
     (define-key map "T" 'jmail-search-toggle-related)
 
     (define-key map (kbd "TAB") 'jmail-search-fold-unfold-thread)
-    (define-key map (kbd "C-TAB") 'jmail-search-fold-unfold-all-thread)
+    (define-key map [C-tab] 'jmail-search-fold-unfold-all-thread)
 
     (define-key map "g" 'jmail-search-refresh)
     (define-key map "s" 'jmail-search-rerun)
