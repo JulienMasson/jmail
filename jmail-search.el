@@ -947,6 +947,9 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defun jmail-search (query)
   (setq jmail-search--saved-index 0)
-  (jmail-search--run query jmail-search-threaded-view nil t))
+  ;; Set related to t by default if no flag is found in query
+  (jmail-search--run query jmail-search-threaded-view
+		     (not (string-match "flag:" query))
+		     t))
 
 (provide 'jmail-search)
