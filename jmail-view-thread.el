@@ -33,6 +33,7 @@
     (define-key map "p" 'jmail-view-thread-previous)
     (define-key map "N" 'jmail-view-thread-search-next)
     (define-key map "P" 'jmail-view-thread-search-previous)
+    (define-key map "t" 'jmail-view-thread-toggle-html)
     (define-key map (kbd "TAB") 'jmail-view-thread-fold-unfold-mail)
     (define-key map [C-tab] 'jmail-view-thread-fold-unfold-all-mails)
     map)
@@ -227,6 +228,10 @@
       (while (< (point) (point-max))
 	(jmail-view-thread--fold-current-mail)
 	(line-move 1)))))
+
+(defun jmail-view-thread-toggle-html ()
+  (interactive)
+  (message "Not supported in jmail view thread"))
 
 (defun jmail-view-thread (current-path paths buffer)
   (if (get-buffer jmail-view--buffer-name)
