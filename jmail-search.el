@@ -641,7 +641,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 (defun jmail-search--fold-prefix (start end subject)
   (let (prefix (unread 0) (total 0))
     (save-excursion
-      (goto-char start)
+      (goto-char (- start 1))
       (while (< (point) end)
 	(cl-incf total)
 	(when-let ((props (text-properties-at (point)))
