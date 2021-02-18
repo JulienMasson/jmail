@@ -558,24 +558,26 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (previous-line)
       (jmail-search--goto-root-thread))))
 
-(defmacro save-fold-overlay (&rest body)
-  `(lexical-let ((overlay (jmail-search--find-fold-overlay (line-end-position)
-							   (line-end-position)))
-		 start end)
-     (when overlay
-       (setq start (overlay-start overlay))
-       (setq end (overlay-end overlay))
-       (jmail-search--remove-fold-overlay overlay))
+(defmacro save-fold-overlays (&rest body)
+  `(lexical-let ((start (line-beginning-position)))
      ,@body
-     (when (and start end)
-       (jmail-search--add-fold-overlay start end))))
+     (lexical-let* ((end (line-end-position))
+		    (overlays (cl-remove-if (lambda (ov)
+					      (and (<= (overlay-start ov) start)
+						   (>= (overlay-end ov) end)))
+					    jmail-search--fold-overlays)))
+       (dolist (ov overlays)
+	 (lexical-let ((start (overlay-start ov))
+		       (end (overlay-end ov)))
+	   (jmail-search--remove-fold-overlay ov)
+	   (jmail-search--add-fold-overlay start end))))))
 
 (defmacro jmail-search--foreach-line-thread (&rest body)
   `(with-jmail-search-buffer
     (save-excursion
-      (save-fold-overlay
-       (lexical-let (start end)
-	 (jmail-search--goto-root-thread)
+      (lexical-let (start end)
+	(jmail-search--goto-root-thread)
+	(save-fold-overlays
 	 (setq start (line-beginning-position))
 	 ,@body
 	 (forward-line)
@@ -584,24 +586,31 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 		     (not (zerop (jmail-search--thread-level-at-point)))
 		     (not (eobp)))
 	   ,@body
-	   (forward-line))
-	 (setq end (line-beginning-position))
-	 (list start end))))))
+	   (forward-line)))
+	(setq end (line-beginning-position))
+	(list start end)))))
 
 (defmacro jmail-search--foreach-line-region (&rest body)
   `(with-jmail-search-buffer
     (save-excursion
       (when (region-active-p)
-	(lexical-let ((beg (region-beginning))
-		      (end (region-end))
-		      start)
-	  (deactivate-mark)
-	  (goto-char beg)
-	  (setq start (line-beginning-position))
-	  (while (<= (point) end)
-	    ,@body
-	    (next-line))
-	  (list start (line-beginning-position)))))))
+	(lexical-let* ((beg-region (region-beginning))
+		       (beg (save-excursion
+			      (goto-char beg-region)
+			      (line-beginning-position)))
+		       (end-region (region-end))
+		       (end (save-excursion
+			      (goto-char end-region)
+			      (line-end-position)))
+		       start)
+	   (deactivate-mark)
+	   (goto-char beg)
+	   (save-fold-overlays
+	    (setq start (point))
+	    (while (<= (point) end)
+	      ,@body
+	      (forward-line)))
+	    (list start (line-beginning-position)))))))
 
 (defun jmail-search--thread-empty-parent-at-point ()
   (when-let* ((object (text-properties-at (point)))
