@@ -436,11 +436,24 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
     (setq jmail-search--objects-thread
 	  (make-thread #'jmail-search--save-objects-handler))))
 
+(defun jmail-search--total-height ()
+  (if-let* ((start (window-start (get-buffer-window (current-buffer))))
+	    (end (point-max))
+	    (lines (mapcar (lambda (ov)
+			     (let ((ov-start (overlay-start ov))
+				   (ov-end (overlay-end ov)))
+			       (when (and (<= start ov-start)
+					  (>= end ov-end))
+				 (count-lines ov-start ov-end))))
+			   jmail-search--fold-overlays)))
+      (+ (window-total-height) (apply #'+ (delq nil lines)))
+    (window-total-height)))
+
 (defun jmail-search--display-saved-objects ()
   (with-jmail-search-buffer
    (while (and jmail-search--saved-objects
 	       (< (count-lines (window-start) (point-max))
-		  (window-total-height)))
+		  (jmail-search--total-height)))
      (jmail-search--process-results (pop jmail-search--saved-objects))))
   (jmail-search--insert-footer))
 
@@ -452,8 +465,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 (defun jmail-search--process-objects (buffer)
   (with-jmail-search-buffer
    (if (>= (count-lines (window-start (get-buffer-window (current-buffer)))
-		       (point-max))
-	   (window-total-height))
+			(point-max))
+	   (jmail-search--total-height))
        (jmail-search--save-objects)
      (jmail-search--display-objects buffer)
      (when (and jmail-search--done
