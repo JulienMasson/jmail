@@ -102,6 +102,11 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   :type 'boolean
   :group 'jmail)
 
+(defcustom jmail-search-auto-fold-thread nil
+  "If non nil, search buffer will fold each thread inserted in the buffer."
+  :type 'boolean
+  :group 'jmail)
+
 (defcustom jmail-search-show-flags t
   "If non nil, search buffer will display flags in front of message title"
   :type 'boolean
@@ -282,6 +287,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (insert " " subject)
        (setq object (append (list :subject-start subject-start) object))
        (add-text-properties (line-beginning-position) (line-end-position) object)
+       (when jmail-search-auto-fold-thread
+	 (jmail-search--fold-current-thread object))
        (insert "\n")))))
 
 (defun jmail-search--update-flags ()
@@ -657,6 +664,26 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
     (add-to-list 'jmail-search--fold-overlays overlay)
     (overlay-put overlay 'invisible t)
     (overlay-put overlay 'before-string prefix)))
+
+(defun jmail-search--fold-current-thread (object)
+  (when-let ((thread (plist-get object :thread)))
+    (let ((level (plist-get thread :level))
+	  (empty-parent (plist-get thread :empty-parent))
+	  (start (plist-get object :subject-start))
+	  (end (line-end-position)))
+      (goto-char start)
+      (if (zerop level)
+	  (when (plist-get thread :has-child)
+	    (jmail-search--add-fold-overlay start end))
+	(unless empty-parent
+	  (previous-line)
+	  (move-beginning-of-line 1)
+	  (when-let* ((root-start (jmail-search--subject-start))
+		      (overlay (jmail-search--find-fold-overlay root-start root-start)))
+	    (jmail-search--remove-fold-overlay overlay)
+	    (goto-char (- root-start 1))
+	    (jmail-search--add-fold-overlay root-start end))))
+      (goto-char end))))
 
 (defun jmail-search--remove-overlay ()
   (when-let* ((start (jmail-search--subject-start))
