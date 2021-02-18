@@ -578,11 +578,13 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	 (jmail-search--goto-root-thread)
 	 (setq start (line-beginning-position))
 	 ,@body
-	 (next-line)
+	 (forward-line)
 	 (while (and (jmail-search--thread-level-at-point)
-		     (not (zerop (jmail-search--thread-level-at-point))))
+		     (not (jmail-search--thread-empty-parent-at-point))
+		     (not (zerop (jmail-search--thread-level-at-point)))
+		     (not (eobp)))
 	   ,@body
-	   (next-line))
+	   (forward-line))
 	 (setq end (line-beginning-position))
 	 (list start end))))))
 
