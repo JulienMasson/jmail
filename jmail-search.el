@@ -641,7 +641,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 		   (flags (jmail-search--flags props)))
 	  (when (member 'unread flags)
 	    (cl-incf unread)))
-	(next-line))
+	(forward-line))
       (when (and jmail-search-bold-unread-message
 		 (> unread 0))
 	(setq subject (propertize subject 'face 'bold)))
