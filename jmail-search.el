@@ -594,6 +594,11 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	    (next-line))
 	  (list start (line-beginning-position)))))))
 
+(defun jmail-search--thread-empty-parent-at-point ()
+  (when-let* ((object (text-properties-at (point)))
+	      (thread (plist-get object :thread)))
+       (plist-get thread :empty-parent)))
+
 (defun jmail-search--thread-range ()
   (when-let ((root-level (jmail-search--thread-level-at-point)))
     (let* ((start (jmail-search--subject-start))
@@ -602,6 +607,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	(forward-line)
 	(while (and (jmail-search--thread-level-at-point)
 		    (> (jmail-search--thread-level-at-point) root-level)
+		    (not (jmail-search--thread-empty-parent-at-point))
 		    (not (eobp)))
 	  (setq end (line-end-position))
 	  (forward-line)))
