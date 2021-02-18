@@ -657,13 +657,15 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
       (concat prefix subject))))
 
 (defun jmail-search--add-fold-overlay (start end)
-  (let* ((object (text-properties-at (point)))
-	 (subject (plist-get object :subject))
-	 (prefix (jmail-search--fold-prefix start end subject))
-	 (overlay (make-overlay start end)))
-    (add-to-list 'jmail-search--fold-overlays overlay)
-    (overlay-put overlay 'invisible t)
-    (overlay-put overlay 'before-string prefix)))
+  (save-excursion
+    (goto-char (- start 1))
+    (let* ((object (text-properties-at (point)))
+	   (subject (plist-get object :subject))
+	   (prefix (jmail-search--fold-prefix start end subject))
+	   (overlay (make-overlay start end)))
+      (add-to-list 'jmail-search--fold-overlays overlay)
+      (overlay-put overlay 'invisible t)
+      (overlay-put overlay 'before-string prefix))))
 
 (defun jmail-search--fold-current-thread (object)
   (when-let ((thread (plist-get object :thread)))
@@ -681,7 +683,6 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	  (when-let* ((root-start (jmail-search--subject-start))
 		      (overlay (jmail-search--find-fold-overlay root-start root-start)))
 	    (jmail-search--remove-fold-overlay overlay)
-	    (goto-char (- root-start 1))
 	    (jmail-search--add-fold-overlay root-start end))))
       (goto-char end))))
 
