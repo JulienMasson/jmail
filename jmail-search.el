@@ -765,7 +765,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 	 (when-let ((path (jmail-search--path)))
 	   (if (string= path target-path)
 	       (throw 'found (point))
-	     (next-line))))))))
+	     (forward-line))))))))
 
 (defun jmail-search-delete-at-point-or-region (confirm)
   (interactive (list (yes-or-no-p (if (region-active-p)
