@@ -152,6 +152,7 @@
 	 (when-let ((pos (jmail-search-find-path path)))
 	   (goto-char pos)
 	   (jmail-search--mark-as-read)
+	   (jmail-search--update-fold-overlay)
 	   (when-let ((object (text-properties-at (point))))
 	     (setq new-path (plist-get object :path))
 	     (setq new-flags (plist-get object :flags))))))

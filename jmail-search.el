@@ -649,6 +649,14 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   (setq jmail-search--fold-overlays (remove overlay jmail-search--fold-overlays))
   (delete-overlay overlay))
 
+(defun jmail-search--update-fold-overlay ()
+  (when-let* ((overlay (jmail-search--find-fold-overlay (line-end-position)
+							(line-end-position)))
+	      (start (overlay-start overlay))
+	      (end (overlay-end overlay)))
+    (jmail-search--remove-fold-overlay overlay)
+    (jmail-search--add-fold-overlay start end)))
+
 (defun jmail-search--fold-prefix (start end subject)
   (let (prefix (unread 0) (total 0))
     (save-excursion
@@ -799,7 +807,8 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
   (if (region-active-p)
       (jmail-search--foreach-line-region
        (funcall (assoc-default flag jmail-search-mark-flags)))
-    (funcall (assoc-default flag jmail-search-mark-flags)))
+    (funcall (assoc-default flag jmail-search-mark-flags))
+    (jmail-search--update-fold-overlay))
   (jmail-fetch-refresh-all t))
 
 (defun jmail-search-mark-thread (flag)
@@ -983,6 +992,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 			    (jmail-search--paths-from-thread)
 			    (current-buffer))
        (jmail-search--mark-as-read)
+       (jmail-search--update-fold-overlay)
        (jmail-view (jmail-search--path) (current-buffer))))))
 
 (defun jmail-search-show-this-thread ()
