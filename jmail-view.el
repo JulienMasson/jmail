@@ -140,9 +140,8 @@
 	      (attachments (jmail-view--get-attachments data)))
     (append (list "all") (mapcar #'car attachments))))
 
-(defun jmail-view--attachments-str ()
-  (when-let* ((data (jmail-view--data-at-point))
-	      (attachments (jmail-view--get-attachments data)))
+(defun jmail-view--attachments-str (data)
+  (when-let ((attachments (jmail-view--get-attachments data)))
     (mapconcat #'car attachments ", ")))
 
 (defun jmail-view--insert-contents (data)
@@ -152,7 +151,7 @@
 	(mailing-list (plist-get data :mailing-list))
 	(subject (plist-get data :subject))
 	(date (jmail-view--date-str data))
-	(attachments (jmail-view--attachments-str))
+	(attachments (jmail-view--attachments-str data))
 	(plain-text (plist-get data :body-txt))
 	(html (plist-get data :body-html)))
     (cl-macrolet ((insert-header (field)
