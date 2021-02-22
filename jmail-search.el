@@ -596,7 +596,7 @@
 	   (goto-char beg)
 	   (save-fold-overlays
 	    (setq start (point))
-	    (while (<= (point) end)
+	    (while (and (<= (point) end) (not (eobp)))
 	      ,@body
 	      (forward-line)))
 	    (list start (line-beginning-position)))))))
