@@ -42,8 +42,7 @@
     (define-key map "r" 'jmail-search-move-at-point-or-region)
     (define-key map "R" 'jmail-search-move-thread)
 
-    (define-key map "t" 'jmail-search-toggle-thread)
-    (define-key map "T" 'jmail-search-toggle-related)
+    (define-key map "t" 'jmail-search-toggle-options)
 
     (define-key map (kbd "TAB") 'jmail-search-fold-unfold-thread)
     (define-key map [C-tab] 'jmail-search-fold-unfold-all-thread)
@@ -827,20 +826,43 @@
   (jmail-fetch-refresh-all t))
 
 (defun jmail-search-toggle-thread ()
-  (interactive)
   (let ((query (plist-get jmail-search--current :query))
 	(thread (not (plist-get jmail-search--current :thread)))
 	(auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
 	(related (plist-get jmail-search--current :related)))
     (jmail-search--run query thread auto-fold-thread related)))
 
+(defun jmail-search-toggle-auto-fold-thread ()
+  (let ((query (plist-get jmail-search--current :query))
+	(thread (plist-get jmail-search--current :thread))
+	(auto-fold-thread (not (plist-get jmail-search--current :auto-fold-thread)))
+	(related (plist-get jmail-search--current :related)))
+    (jmail-search--run query thread auto-fold-thread related)))
+
 (defun jmail-search-toggle-related ()
-  (interactive)
   (let ((query (plist-get jmail-search--current :query))
 	(thread (plist-get jmail-search--current :thread))
 	(auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
 	(related (not (plist-get jmail-search--current :related))))
     (jmail-search--run query thread auto-fold-thread related)))
+
+(defun jmail-search-toggle-options ()
+  (interactive)
+  (with-jmail-search-buffer
+   (let* ((thread (plist-get jmail-search--current :thread))
+	  (auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
+	  (related (plist-get jmail-search--current :related))
+	  (targets `(("thread" . (,thread jmail-search-toggle-thread))
+		     ("auto-fold-thread" .
+		      (,auto-fold-thread jmail-search-toggle-auto-fold-thread))
+		     ("related" . (,related jmail-search-toggle-related))))
+	  (options (mapcar (lambda (target)
+			     (propertize (car target) 'face
+					 (if (cadr target) 'success 'error)))
+			   targets))
+	  (option (completing-read "Toggle option: " options))
+	  (target (assoc-default option targets)))
+     (funcall (cadr target)))))
 
 (defun jmail-search-fold-unfold-thread ()
   (interactive)
