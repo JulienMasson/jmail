@@ -23,13 +23,6 @@
 
 ;;; Code:
 
-(require 'cl-macs)
-
-(cl-defstruct jcount
-  (query nil :read-only t)
-  (cb    nil :read-only t)
-  (data  nil :read-only t))
-
 ;;; Internal Variables
 
 (defconst jmail-count--buffer-name "*jmail-count*")
@@ -45,9 +38,8 @@
 
 (defun jmail-count--call-cb (count)
   (when jmail-count--current
-    (when-let ((cb (jcount-cb jmail-count--current))
-	       (data (jcount-data jmail-count--current)))
-      (jmail-funcall cb count data))))
+    (when-let ((cb (cadr jmail-count--current)))
+      (jmail-funcall cb count))))
 
 (defun jmail-count--process-sentinel (process status)
   (when (eq (process-status process) 'exit)
@@ -57,21 +49,20 @@
 	  (jmail-count--call-cb (- (line-number-at-pos (point-max)) 1)))
       (jmail-count--call-cb 0)))
   (if jmail-count--queues
-      (jmail-count--process (pop jmail-count--queues))
+      (apply #'jmail-count--process (pop jmail-count--queues))
     (setq jmail-count--current nil)
     (kill-buffer jmail-count--buffer-name)))
 
-(defun jmail-count--process (jcount)
+(defun jmail-count--process (query cb)
   (when-let* ((default-directory jmail-top-maildir)
 	      (program (jmail-find-program jmail-index-program))
-	      (query (jcount-query jcount))
 	      (args (jmail-count--get-args query))
 	      (buffer (get-buffer-create jmail-count--buffer-name))
 	      (process (apply 'start-file-process "jmail-count" buffer
 			      program args)))
     (with-current-buffer buffer
       (erase-buffer))
-    (setq jmail-count--current jcount)
+    (setq jmail-count--current (list query cb))
     (set-process-filter process 'jmail-process-filter)
     (set-process-sentinel process 'jmail-count--process-sentinel)))
 
@@ -82,12 +73,9 @@
   (setq jmail-count--current nil)
   (jmail-terminate-process-buffer jmail-count--buffer-name))
 
-(defun jmail-count-get (query cb data)
-  (let ((jcount (make-jcount :query query
-			     :cb cb
-			     :data data)))
-    (if jmail-count--current
-	(add-to-list 'jmail-count--queues jcount t)
-      (jmail-count--process jcount))))
+(defun jmail-count-get (query cb)
+  (if jmail-count--current
+      (add-to-list 'jmail-count--queues (list query cb) t)
+    (jmail-count--process query cb)))
 
 (provide 'jmail-count)
