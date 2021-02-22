@@ -29,12 +29,47 @@ It depends on the following tools:
 ;; msmtp config file
 (setq jmail-smtp-config-file "~/.msmtprc")
 
-;; queries
-(setq jmail-queries '(("Custom" . (("Starred" . "flag:flagged")))
-                      ("Gmail"  . (("Emacs"   . "maildir:/Gmail/Emacs")
-                                   ("Github"  . "maildir:/Gmail/Github")
-                                   ("INBOX"   . "maildir:/Gmail/INBOX")
-                                   ("Sent"    . "maildir:/Gmail/Sent")))))
+;; add Starred query (no group)
+(jmail-add-query :name "Starred"
+		 :query "flag:flagged"
+		 :thread nil
+		 :auto-fold-thread nil
+		 :related nil)
+
+;; add Gmail queries
+(jmail-add-group :name "Gmail"
+		 :query "maildir:/Gmail/Emacs and maildir:/Gmail/Github and maildir:/Gmail/INBOX"
+		 :thread t
+		 :auto-fold-thread t
+		 :related t)
+
+(jmail-add-query-to-group "Gmail"
+			  :name "Emacs"
+			  :query "maildir:/Gmail/Emacs"
+			  :thread t
+			  :auto-fold-thread t
+			  :related t)
+
+(jmail-add-query-to-group "Gmail"
+			  :name "Github"
+			  :query "maildir:/Gmail/Github"
+			  :thread t
+			  :auto-fold-thread nil
+			  :related t)
+
+(jmail-add-query-to-group "Gmail"
+			  :name "INBOX"
+			  :query "maildir:/Gmail/INBOX"
+			  :thread t
+			  :auto-fold-thread t
+			  :related t)
+
+(jmail-add-query-to-group "Gmail"
+			  :name "Sent"
+			  :query "maildir:/Gmail/Seng"
+			  :thread nil
+			  :auto-fold-thread nil
+			  :related nil)
 
 ;; fetch/refresh every 60 seconds
 (setq jmail-fetch-refresh-every 60)

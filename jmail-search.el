@@ -96,17 +96,6 @@
 
 ;;; Customization
 
-(defcustom jmail-search-threaded-view t
-  "If non nil, search buffer will display threaded messages by default.
-The user is still able to toggle the view with `jmail-search-toggle-thread'."
-  :type 'boolean
-  :group 'jmail)
-
-(defcustom jmail-search-auto-fold-thread nil
-  "If non nil, search buffer will fold each thread inserted in the buffer."
-  :type 'boolean
-  :group 'jmail)
-
 (defcustom jmail-search-show-flags t
   "If non nil, search buffer will display flags in front of message title"
   :type 'boolean
@@ -287,7 +276,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
        (insert " " subject)
        (setq object (append (list :subject-start subject-start) object))
        (add-text-properties (line-beginning-position) (line-end-position) object)
-       (when jmail-search-auto-fold-thread
+       (when (plist-get jmail-search--current :auto-fold-thread)
 	 (jmail-search--fold-current-thread object))
        (insert "\n")))))
 
@@ -530,7 +519,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
    (setq jmail-search--done nil)
    (setq jmail-search--saved-objects nil)))
 
-(defun jmail-search--run (query thread related &optional save)
+(defun jmail-search--run (query thread auto-fold-thread related &optional save)
   (unless (get-buffer jmail-search--buffer-name)
     (with-current-buffer (get-buffer-create jmail-search--buffer-name)
       (jmail-search-mode)))
@@ -538,6 +527,7 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
    (jmail-search--setup-env)
    (setq jmail-search--current `(:query ,query
 				 :thread ,thread
+				 :auto-fold-thread ,auto-fold-thread
 				 :related ,related))
    (when save
      (push jmail-search--current jmail-search--saved))
@@ -838,19 +828,19 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defun jmail-search-toggle-thread ()
   (interactive)
-  (when jmail-search--current
-    (let ((query (plist-get jmail-search--current :query))
-	  (thread (not (plist-get jmail-search--current :thread)))
-	  (related (plist-get jmail-search--current :related)))
-      (jmail-search--run query thread related))))
+  (let ((query (plist-get jmail-search--current :query))
+	(thread (not (plist-get jmail-search--current :thread)))
+	(auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
+	(related (plist-get jmail-search--current :related)))
+    (jmail-search--run query thread auto-fold-thread related)))
 
 (defun jmail-search-toggle-related ()
   (interactive)
-  (when jmail-search--current
-    (let ((query (plist-get jmail-search--current :query))
-	  (thread (plist-get jmail-search--current :thread))
-	  (related (not (plist-get jmail-search--current :related))))
-      (jmail-search--run query thread related))))
+  (let ((query (plist-get jmail-search--current :query))
+	(thread (plist-get jmail-search--current :thread))
+	(auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
+	(related (not (plist-get jmail-search--current :related))))
+    (jmail-search--run query thread auto-fold-thread related)))
 
 (defun jmail-search-fold-unfold-thread ()
   (interactive)
@@ -872,20 +862,20 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
 
 (defun jmail-search-refresh ()
   (interactive)
-  (when jmail-search--current
-    (let ((query (plist-get jmail-search--current :query))
-	  (thread (plist-get jmail-search--current :thread))
-	  (related (plist-get jmail-search--current :related)))
-      (jmail-search--run query thread related))))
+  (let ((query (plist-get jmail-search--current :query))
+	(thread (plist-get jmail-search--current :thread))
+	(auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
+	(related (plist-get jmail-search--current :related)))
+    (jmail-search--run query thread auto-fold-thread related)))
 
 (defun jmail-search-rerun ()
   (interactive)
-  (when jmail-search--current
-    (let* ((query (plist-get jmail-search--current :query))
-	   (query (jmail-read-prompt "Search: " jmail-search-fields query))
-	   (thread (plist-get jmail-search--current :thread))
-	   (related (plist-get jmail-search--current :related)))
-      (jmail-search--run query thread related))))
+  (let* ((query (plist-get jmail-search--current :query))
+	 (query (jmail-read-prompt "Search: " jmail-search-fields query))
+	 (thread (plist-get jmail-search--current :thread))
+	 (auto-fold-thread (plist-get jmail-search--current :auto-fold-thread))
+	 (related (plist-get jmail-search--current :related)))
+    (jmail-search--run query thread auto-fold-thread related)))
 
 (defun jmail-search-display-all ()
   (interactive)
@@ -980,11 +970,14 @@ The user is still able to toggle the view with `jmail-search-toggle-thread'."
    (kill-buffer))
   (jmail))
 
-(defun jmail-search (query)
+(defun jmail-search (query thread auto-fold-thread related)
   (setq jmail-search--saved-index 0)
-  ;; Set related to t by default if no flag is found in query
-  (jmail-search--run query jmail-search-threaded-view
-		     (not (string-match "flag:" query))
-		     t))
+  (jmail-search--run query thread auto-fold-thread related t))
+
+(defun jmail-search-default (query)
+  (jmail-search query
+		(plist-get jmail-default-query-options :thread)
+		(plist-get jmail-default-query-options :auto-fold-thread)
+		(plist-get jmail-default-query-options :related)))
 
 (provide 'jmail-search)

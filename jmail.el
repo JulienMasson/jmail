@@ -77,7 +77,7 @@
   "jmail"
   (jmail--update-header-line jmail--default-header)
   (jmail--insert-header)
-  (jmail--insert-queries)
+  (jmail--fill-buffer)
   (toggle-read-only t))
 
 ;;; Faces
@@ -99,8 +99,16 @@
   :type 'string
   :group 'jmail)
 
-(defcustom jmail-queries nil
+(defcustom jmail-queries '((:queries nil))
   "Queries displayed in menu"
+  :group 'jmail)
+
+(defcustom jmail-default-query-options
+  '(:thread nil :auto-fold-thread nil :related nil)
+  "Default options used by interactive functions:
+- `jmail-unread-all'
+- `jmail-search-prompt'
+- `jmail-jump-to-maildir'"
   :group 'jmail)
 
 (defcustom jmail-fetch-refresh-every nil
@@ -138,8 +146,6 @@
 
 (defconst jmail--buffer-name "*jmail*")
 
-(defconst jmail--unknown-count "(/)")
-
 (defconst jmail--default-header "Welcome to Jmail !")
 (defconst jmail--fetch-ongoing (propertize "Fetch ongoing ..." 'face 'warning))
 (defconst jmail--fetch-error (propertize "Fetch Failed !" 'face 'error))
@@ -156,31 +162,32 @@
 (defun jmail--insert-query (query)
   (insert (propertize (format "%-5s %-18s" " " query) 'face 'bold)))
 
-(defun jmail--insert-section (section queries)
-  (let ((beg (point))
-	(queries-all (mapconcat (lambda (query)
-				  (format "(%s)" (cdr query)))
-				queries " or ")))
-    (insert (propertize (format "    ▶ %s" (upcase section))
-			'face 'jmail-section-face))
-    (put-text-property beg (point) 'jmail-section queries-all)
+(defun jmail--insert-group (group)
+  (insert (propertize (format "    ▶ %s" (upcase group))
+		      'face 'jmail-section-face)))
+
+(defun jmail--insert-queries (queries)
+  (dolist (query queries)
+    (jmail--insert-query (plist-get query :name))
+    (insert "(/)")
+    (add-text-properties (line-beginning-position)
+			 (line-end-position)
+			 query)
     (insert "\n")))
 
-(defun jmail--insert-queries ()
-  (mapc (lambda (data)
-	  (let ((section (car data))
-		(queries (cdr data)))
-	    (when section
-	      (jmail--insert-section section queries))
-	    (mapc (lambda (query)
-		    (let ((beg (point)))
-		      (jmail--insert-query (car query))
-		      (insert jmail--unknown-count)
-		      (put-text-property beg (point) 'jmail (cdr query))
-		      (insert "\n")))
-		  queries)
-	    (insert "\n")))
-	jmail-queries))
+(defun jmail--fill-buffer ()
+  (let ((queries (car jmail-queries))
+	(groups (cdr jmail-queries)))
+    (jmail--insert-queries (plist-get queries :queries))
+    (insert "\n")
+    (dolist (group groups)
+      (jmail--insert-group (plist-get group :name))
+      (add-text-properties (line-beginning-position)
+			   (line-end-position)
+			   (append group (list :skip-counts t)))
+      (insert "\n")
+      (jmail--insert-queries (plist-get group :queries))
+      (insert "\n"))))
 
 (defmacro with-jmail-buffer (&rest body)
   `(when (get-buffer jmail--buffer-name)
@@ -201,79 +208,65 @@
   (jmail-rss-setup)
   (jmail--goto-first-query))
 
-(defun jmail--get-query (pos)
-  (or (get-text-property pos 'jmail-section)
-      (get-text-property pos 'jmail)))
+(defun jmail--goto-query-name ()
+  (goto-char (line-beginning-position))
+  (when (re-search-forward "[[:alnum:]]" nil t)
+    (backward-char)))
 
 (defun jmail--move-to-query (forward)
   (with-jmail-buffer
-   (let* ((pos (jmail-find-alphanumeric-character (point) forward))
-	  (prop (if pos (jmail--get-query pos))))
-     (while (and pos (not prop))
-       (save-excursion
-	 (goto-char pos)
-	 (setq pos (jmail-find-alphanumeric-character (point) forward))
-	 (when pos
-	   (setq prop (jmail--get-query pos)))))
-     (when (and pos prop)
-       (goto-char pos)))))
+   (let ((limit (if forward #'eobp #'bobp))
+	 pos)
+     (save-excursion
+       (while (and (not pos) (not (funcall limit)))
+	 (forward-line (if forward 1 -1))
+	 (when-let ((props (text-properties-at (point))))
+	   (when (plist-get props :query)
+	     (jmail--goto-query-name)
+	     (setq pos (point))))))
+     (when pos (goto-char pos)))))
 
 (defun jmail--goto-first-query ()
   (with-jmail-buffer
    (goto-char (point-min))
-   (jmail-next-query)))
+   (catch 'found
+     (while (not (eobp))
+       (when-let ((props (text-properties-at (point))))
+	 (when (plist-get props :query)
+	   (jmail--goto-query-name)
+	   (throw 'found (point))))
+       (forward-line)))))
 
-(defun jmail--line-first-query ()
-  (with-jmail-buffer
-   (save-excursion
-     (jmail--goto-first-query)
-     (line-number-at-pos))))
-
-(defun jmail--goto-last-query ()
-  (with-jmail-buffer
-   (goto-char (point-max))
-   (jmail-previous-query)))
-
-(defun jmail--line-last-query ()
-  (with-jmail-buffer
-   (save-excursion
-     (jmail--goto-last-query)
-     (line-number-at-pos))))
-
-(defmacro jmail--foreach-query (line query &rest body)
+(defmacro jmail--foreach-query (&rest body)
   (declare (indent 2))
   `(with-jmail-buffer
     (save-excursion
-      (when-let ((first (jmail--line-first-query))
-		 (last (jmail--line-last-query)))
-	(goto-line first)
-	(setq ,line first)
-	(setq ,query (get-text-property (point) 'jmail))
-	(when ,query
-	  ,@body)
-	(while (not (= ,line last))
-	  (jmail-next-query)
-	  (setq ,line (line-number-at-pos))
-	  (setq ,query (get-text-property (point) 'jmail))
-	  (when ,query
-	    ,@body))))))
+      (let (current-pos)
+	(jmail--goto-first-query)
+	,@body
+	(setq current-pos (point))
+	(jmail--move-to-query t)
+	(while (/= current-pos (point))
+	  ,@body
+	  (setq current-pos (point))
+	  (jmail--move-to-query t))))))
 
-(defun jmail--count-total-handler (count data)
+(defun jmail--count-total-handler (line count)
   (with-jmail-buffer
    (save-excursion
-     (goto-line data)
-     (end-of-line)
+     (goto-line line)
+     (goto-char (line-end-position))
      (when (re-search-backward "/.*)$" nil t)
        (replace-match (format "/%d)" count))))))
 
-(defun jmail--count-unread-handler (count data)
+(defun jmail--count-unread-handler (line count)
   (with-jmail-buffer
    (save-excursion
-     (goto-line data)
+     (goto-line line)
      (run-hook-with-args 'jmail-unread-count-hook
-     			 (get-text-property (point) 'jmail)
-     			 count)
-     (end-of-line)
+			 (text-properties-at (point))
+			 count)
+     (goto-char (line-end-position))
      (when (re-search-backward "(.*/\\(.*\\))$" nil t)
        (let ((beg (point)))
 	 (replace-match (format "(%d/\\1)" count))
@@ -308,9 +301,12 @@
 
 (defun jmail--maildir-name-list ()
   (let (maildir)
-    (jmail--foreach-query line query
-      (when (string-match "maildir:/\\(.*\\)" query)
-	(add-to-list 'maildir (match-string 1 query))))
+    (jmail--foreach-query
+	(when-let* ((props (text-properties-at (point)))
+		    (query (plist-get props :query)))
+	  (when (and (string-match "maildir:/\\(.*\\)" query)
+		     (not (plist-get props :skip-counts)))
+	    (add-to-list 'maildir (match-string 1 query)))))
     maildir))
 
 (defun jmail--check-programs ()
@@ -327,30 +323,74 @@
       (jmail-abort "`jmail-top-maildir' and `jmail-sync-config-file' doesn't have common host")))
   (unless jmail-smtp-config-file
     (jmail-abort "Please set `jmail-smtp-config-file'"))
-  (unless jmail-queries
-    (jmail-abort "Please set `jmail-queries'"))
   (jmail-update-check-database))
 
 ;;; External Functions
 
+(defun jmail-reset-queries ()
+  (setq jmail-queries '((:queries nil))))
+
+(defun jmail-add-query (&rest plist)
+  (let ((queries (plist-get (car jmail-queries) :queries)))
+    (setf (plist-get (car jmail-queries) :queries)
+	  (append queries (list plist)))))
+
+(defun jmail-add-group (&rest plist)
+  (let ((groups (cdr jmail-queries))
+	(group (append plist (list :queries nil))))
+    (setf (cdr jmail-queries) (append groups (list group)))))
+
+(defun jmail-add-query-to-group (group-name &rest plist)
+  (catch 'found
+    (dolist (group (cdr jmail-queries))
+      (when (string= group-name (plist-get group :name))
+	(let ((queries (plist-get group :queries)))
+	  (setf (plist-get group :queries)
+		(append queries (list plist)))
+	  (throw 'found t))))))
+
+(defun jmail-autofill-queries-from-top-maildir (&rest plist)
+  (let* ((path (expand-file-name jmail-top-maildir))
+	 (dirs (directory-files-recursively path "cur$" t))
+  	 (subdirs (jmail--maildir-subdirs-assoc path dirs))
+	 (thread (plist-get plist :thread))
+	 (auto-fold-thread (plist-get plist :auto-fold-thread))
+	 (related (plist-get plist :related)))
+    (pcase-dolist (`(,group . ,queries) subdirs)
+      (let ((all (mapconcat #'cdr queries " and ")))
+	(jmail-add-group :name group
+			 :query all
+			 :thread thread
+			 :auto-fold-thread auto-fold-thread
+			 :related related)
+	(dolist (query queries)
+	  (jmail-add-query-to-group group
+				    :name (car query)
+				    :query (cdr query)
+				    :thread thread
+				    :auto-fold-thread auto-fold-thread
+				    :related related))))))
+
 (defun jmail-refresh-at-point ()
   (interactive)
-  (when-let ((query (jmail--get-query (point)))
-	     (line (line-number-at-pos)))
-    (jmail-count-get query #'jmail--count-total-handler line)
-    (jmail-count-get (format "(%s) and flag:unread" query)
-    		     #'jmail--count-unread-handler line)))
+  (when-let* ((props (text-properties-at (point)))
+	      (query (plist-get props :query))
+	      (query-unread (format "(%s) and flag:unread" query))
+	      (line (line-number-at-pos))
+	      (handler (apply-partially #'jmail--count-total-handler line))
+	      (handler-unread (apply-partially #'jmail--count-unread-handler line)))
+    (unless (plist-get props :skip-counts)
+      (jmail-count-get query handler)
+      (jmail-count-get query-unread handler-unread))))
 
 (defun jmail-refresh-all ()
   (interactive)
-  (jmail--foreach-query line query
-    (jmail-count-get query #'jmail--count-total-handler line)
-    (jmail-count-get (format "(%s) and flag:unread" query)
-    		     #'jmail--count-unread-handler line)))
+  (jmail--foreach-query (jmail-refresh-at-point)))
 
 (defun jmail-fetch-refresh-at-point ()
   (interactive)
-  (when-let* ((query (jmail--get-query (point)))
+  (when-let* ((props (text-properties-at (point)))
+	      (query (plist-get props :query))
 	      (regexp "maildir:/\\([[:alnum:]-_]+/[[:alnum:]-_]+\\)")
 	      (maildirs (delq nil (mapcar (lambda (query)
 					    (when (string-match regexp query)
@@ -368,27 +408,34 @@
 
 (defun jmail-unread-at-point ()
   (interactive)
-  (when-let* ((query (jmail--get-query (point)))
-	      (unread (format "(%s) and flag:unread" query)))
-    (jmail-search unread)))
+  (when-let* ((props (text-properties-at (point)))
+	      (query (plist-get props :query))
+	      (query-unread (format "(%s) and flag:unread" query)))
+    (jmail-search query-unread
+		  (plist-get props :thread)
+		  (plist-get props :auto-fold-thread)
+		  (plist-get props :related))))
 
 (defun jmail-unread-all ()
   (interactive)
-  (jmail-search "flag:unread"))
+  (jmail-search-default "flag:unread"))
 
 (defun jmail-search-prompt-at-point (query)
   (interactive (list (jmail-read-prompt "Search here: " jmail-search-fields)))
-  (when-let ((query-at-point (jmail--get-query (point))))
-    (jmail-search (format "(%s) and %s" query-at-point query))))
+  (when-let* ((props (text-properties-at (point)))
+	      (query-at-point (plist-get props :query)))
+    (jmail-search (format "(%s) and %s" query-at-point query)
+		  (plist-get props :thread)
+		  (plist-get props :auto-fold-thread)
+		  (plist-get props :related))))
 
 (defun jmail-search-prompt (query)
   (interactive (list (jmail-read-prompt "Search: " jmail-search-fields)))
-  (jmail-search query))
+  (jmail-search-default query))
 
 (defun jmail-jump-to-maildir (query)
-  (interactive (list (completing-read "Jump to: "
-				      (jmail--maildir-name-list))))
-  (jmail-search (concat "maildir:/" query)))
+  (interactive (list (completing-read "Jump to: " (jmail--maildir-name-list))))
+  (jmail-search-default (concat "maildir:/" query)))
 
 (defun jmail-next-query ()
   (interactive)
@@ -410,8 +457,12 @@
 
 (defun jmail-enter ()
   (interactive)
-  (when-let ((query (jmail--get-query (point))))
-    (jmail-search query)))
+  (when-let* ((props (text-properties-at (point)))
+	      (query (plist-get props :query)))
+    (jmail-search query
+		  (plist-get props :thread)
+		  (plist-get props :auto-fold-thread)
+		  (plist-get props :related))))
 
 (defun jmail ()
   (interactive)

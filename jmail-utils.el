@@ -139,53 +139,25 @@
       (jmail-tramp-executable-find program-name)
     (executable-find program-name)))
 
-(defun jmail-find-alphanumeric-character (from forward)
-  (save-excursion
-    (goto-char from)
-    (if forward
-	(progn
-	  (end-of-line)
-	  (when (re-search-forward "[[:alnum:]]" nil t)
-	    (- (point) 1)))
-      (beginning-of-line)
-      (when (re-search-backward "[[:alnum:]]" nil t)
-	(beginning-of-line)
-	(re-search-forward "[[:alnum:]]" nil t)
-	(- (point) 1)))))
-
-(defun jmail-maildir-add-query (header name query queries &optional append)
-  (if (assoc header queries)
-      (let ((data (assoc-default header queries)))
-	(setcdr (assoc header queries)
-		(add-to-list 'data `(,name . ,query) append)))
-    (add-to-list 'queries (cons header `((,name . ,query))) append))
-  queries)
-
-(defun jmail-autofill-maildir-queries (top)
-  (when (file-exists-p top)
-    (let* ((path (expand-file-name top))
-	   (dirs (directory-files-recursively path "cur$" t))
-  	   (subdirs (mapcar (lambda (dir)
-  			      (replace-regexp-in-string
-  			       (format "%s/\\(.*\\)/cur" path)
-  			       "\\1" dir)) dirs))
-	   queries)
-      (mapc (lambda (elem)
-	      (let ((query (format "maildir:/%s" elem)))
-		(cl-multiple-value-bind (header name)
-		    (split-string elem "/")
-		  (setq queries (if name
-				    (jmail-maildir-add-query header name query queries t)
-				  (jmail-maildir-add-query nil header query queries))))))
-	    subdirs)
-      queries)))
-
 (defun jmail-maildirs (top)
   (when (file-exists-p top)
     (when-let ((dirs (directory-files-recursively top "cur$" t)))
       (mapcar (lambda (dir)
   		(replace-regexp-in-string (format "%s\\(.*\\)/cur" top)
   					  "\\1" dir)) dirs))))
+
+(defun jmail--maildir-subdirs-assoc (from dirs)
+  (let (data)
+    (dolist (dir dirs)
+      (let* ((subdir (replace-regexp-in-string (format "%s/\\(.*\\)/cur" from)
+  					       "\\1" dir))
+	     (maildir (concat "maildir:/" subdir)))
+	(pcase-let ((`(,root ,child) (split-string subdir "/")))
+	  (if-let ((childs (assoc-default root data)))
+	      (setcdr (assoc root data) (append childs (list (cons child maildir))))
+	    (message "%s" root)
+	    (add-to-list 'data (cons root (list (cons child maildir))) t)))))
+    data))
 
 (defun jmail-extract-sexp-object (buffer)
   (with-current-buffer buffer
