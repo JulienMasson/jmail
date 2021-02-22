@@ -357,7 +357,7 @@
 	 (auto-fold-thread (plist-get plist :auto-fold-thread))
 	 (related (plist-get plist :related)))
     (pcase-dolist (`(,group . ,queries) subdirs)
-      (let ((all (mapconcat #'cdr queries " and ")))
+      (let ((all (mapconcat #'cdr queries " or ")))
 	(jmail-add-group :name group
 			 :query all
 			 :thread thread
