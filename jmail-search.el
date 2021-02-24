@@ -136,6 +136,11 @@
   :type 'number
   :group 'jmail)
 
+(defcustom jmail-search-thread-symbols '("┗━▶" "┣━▶" "┃")
+  "List of symbols used when we display thread"
+  :type 'list
+  :group 'jmail)
+
 ;;; Internal Variables
 
 (defconst jmail-search--process-buffer-name "*jmail-search-process*")
@@ -196,13 +201,16 @@
   (when-let ((thread (plist-get object :thread)))
     (let* ((level (plist-get thread :level))
 	   (last-child (plist-get thread :last-child))
-	   (spaces (make-string (* level 4) (string-to-char " "))))
+	   (spaces (make-string (* level 2) (string-to-char " ")))
+	   (last-child-symbol (nth 0 jmail-search-thread-symbols))
+	   (child-symbol (nth 1 jmail-search-thread-symbols))
+	   (separator-symbol (nth 2 jmail-search-thread-symbols)))
       (cond ((= level 1)
-	     (if last-child "  ┗━▶" "  ┣━▶"))
+	     (concat "  " (if last-child last-child-symbol child-symbol)))
 	    ((> level 1)
 	     (if last-child
-		 (format "  ┃%s┗━▶" spaces)
-	       (format "  ┃%s┣━▶" spaces)))))))
+		 (concat "  " separator-symbol spaces last-child-symbol)
+	       (concat "  " separator-symbol spaces child-symbol)))))))
 
 (defun jmail-search--date (object)
   (let* ((date (plist-get object :date))
