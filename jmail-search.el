@@ -854,6 +854,9 @@
 	(related (not (plist-get jmail-search--current :related))))
     (jmail-search--run query thread auto-fold-thread related)))
 
+(defun jmail-search-toggle-default-view ()
+  (setq jmail-view-thread-default-view (not jmail-view-thread-default-view)))
+
 (defun jmail-search-toggle-options ()
   (interactive)
   (with-jmail-search-buffer
@@ -863,7 +866,9 @@
 	  (targets `(("thread" . (,thread jmail-search-toggle-thread))
 		     ("auto-fold-thread" .
 		      (,auto-fold-thread jmail-search-toggle-auto-fold-thread))
-		     ("related" . (,related jmail-search-toggle-related))))
+		     ("related" . (,related jmail-search-toggle-related))
+		     ("thread-view" . (,jmail-view-thread-default-view
+				       jmail-search-toggle-default-view))))
 	  (options (mapcar (lambda (target)
 			     (propertize (car target) 'face
 					 (if (cadr target) 'success 'error)))
