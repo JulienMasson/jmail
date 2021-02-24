@@ -55,10 +55,6 @@
   "Face used for separator in jmail view thread"
   :group 'jmail)
 
-;;; Internal Variables
-
-(defvar-local jmail-view-thread--fold-overlays nil)
-
 ;;; Internal Functions
 
 (defun jmail-view-thread--insert-separator ()
@@ -66,58 +62,108 @@
     (insert "\n")
     (overlay-put (make-overlay beg (point)) 'face 'jmail-view-thread-separator-face)))
 
-(defun jmail-view-thread--insert-mail (target-path paths data)
+(defun jmail-view-thread--update-props (from offset)
+  (save-excursion
+    (goto-char from)
+    (while (not (eobp))
+      (let ((props (text-properties-at (point))))
+	(unless (plist-get props :unload)
+	  (when-let ((data (plist-get props :jmail-view-data))
+		     (start (plist-get props :jmail-view-start))
+		     (new-start (+ start offset))
+		     (header (plist-get props :jmail-view-header))
+		     (new-header (+ header offset))
+		     (end (plist-get props :jmail-view-end))
+		     (new-end (+ end offset)))
+	    (put-text-property new-start new-end :jmail-view-data data)
+	    (put-text-property new-start new-end :jmail-view-start new-start)
+	    (put-text-property new-start new-end :jmail-view-header new-header)
+	    (put-text-property new-start new-end :jmail-view-end new-end)
+	    (goto-char new-end)))
+	(forward-line)))))
+
+(defun jmail-view-thread--load-mail (start thread after-load-cb data)
   (with-jmail-view-buffer
-   (let (start header end)
+   (let (header end)
      (save-excursion
-       (goto-char (point-max))
-       (setq start (point))
-       (unless (= (point-min) (point-max))
+       (goto-char start)
+       (unless (= start (point-min))
 	 (jmail-view-thread--insert-separator))
        (setq header (point))
+       (setq data (append data (list :thread thread)))
        (jmail-view--insert-contents data)
-       (setq end (- (point-max) 1))
-       (add-text-properties start (point-max) (list :jmail-view-data data
-						    :jmail-view-start start
-						    :jmail-view-header header
-						    :jmail-view-end end))
-       (jmail-view--fontify-mail header)
+       (setq end (point))
+       (add-text-properties start end (list :jmail-view-data data
+					    :jmail-view-start start
+					    :jmail-view-header header
+					    :jmail-view-end end))
+       (jmail-view--fontify-mail header end)
        (set-buffer-modified-p nil)
-       (jmail-view-thread--insert-mails target-path paths))
-     (if (string= target-path (plist-get data :path))
-	 (progn
-	   (goto-char header)
-	   (jmail-view-thread--mark-as-read))
-       (jmail-view-thread--add-fold-overlay data start end)))))
+       (unless (= (point) (point-max))
+	 (jmail-view-thread--update-props (+ end 1) (- end start)))
+       (when after-load-cb (funcall after-load-cb)))
+     (goto-char header)
+     (jmail-view-thread--mark-as-read))))
 
-(defun jmail-view-thread--insert-mails (target-path paths)
-  (when-let ((current-path (pop paths))
-	     (handler (apply-partially #'jmail-view-thread--insert-mail
-				       target-path paths)))
-    (jmail-view--get-mail-data current-path handler)))
+
+(defun jmail-view-thread--after-load-target-cb (objects)
+  (when objects
+    (insert "\n")
+    (mapc #'jmail-view-thread--insert-unload objects)))
+
+(defun jmail-view-thread--load-target (target objects)
+  (let* ((thread (plist-get target :thread))
+	 (after-load-cb (apply-partially #'jmail-view-thread--after-load-target-cb
+					 objects))
+	 (handler (apply-partially #'jmail-view-thread--load-mail
+				   (point-max) thread after-load-cb))
+	 (path (plist-get target :path)))
+    (jmail-view--get-mail-data path handler)))
+
+(defun jmail-view-thread--insert-unload (object)
+  (with-jmail-view-buffer
+   (let ((data (append object (list :unload t))))
+     (jmail-view-thread--add-fold-overlay data (point-max) (point-max))
+     (insert "\n"))))
+
+(defun jmail-view-thread--insert-mails (target objects)
+  (catch 'target-found
+    (let ((object (pop objects)))
+      (while object
+	(if (eq target object)
+	    (progn
+	      (jmail-view-thread--load-target target objects)
+	      (throw 'target-found nil))
+	  (jmail-view-thread--insert-unload object))
+	(setq object (pop objects))))))
 
 (defun jmail-view-thread--add-fold-overlay (data start end)
   (let* ((from (jmail-search--from data))
 	 (date (jmail-search--date data))
-	 (header (format (jmail-search--fmt) date from ""))
+	 (thread (jmail-search--thread data))
+	 (header (format (jmail-search--fmt) date from (if thread thread "")))
 	 (subject (jmail-search--subject data))
 	 (flags (plist-get data :flags))
 	 (overlay (make-overlay start end)))
     (when (and jmail-search-bold-unread-message (member 'unread flags))
       (setq subject (propertize subject 'face 'bold)))
-    (add-to-list 'jmail-view-thread--fold-overlays overlay)
+    (overlay-put overlay 'jmail-view-data data)
     (overlay-put overlay 'invisible t)
     (overlay-put overlay 'before-string (concat header " " subject))))
 
 (defun jmail-view-thread--find-fold-overlay (start end)
   (cl-find-if (lambda (ov)
-		(and (<= (overlay-start ov) start)
-		     (>= (overlay-end ov) end)))
-	      jmail-view-thread--fold-overlays))
+		(when-let ((props (overlay-properties ov)))
+		  (and (<= (overlay-start ov) start)
+		       (>= (overlay-end ov) end)
+		       (plist-get props 'jmail-view-data))))
+	      (overlays-in (point-min) (point-max))))
 
-(defun jmail-view-thread--remove-fold-overlay (overlay)
-  (setq jmail-view-thread--fold-overlays (remove overlay jmail-view-thread--fold-overlays))
-  (delete-overlay overlay))
+(defun jmail-view-thread--fold-overlays-p ()
+  (cl-find-if (lambda (ov)
+		(when-let ((props (overlay-properties ov)))
+		  (plist-get props 'jmail-view-data)))
+	      (overlays-in (point-min) (point-max))))
 
 (defun jmail-view-thread--fold-current-mail ()
   (when-let* ((props (text-properties-at (point)))
@@ -125,6 +171,32 @@
 	      (start (plist-get props :jmail-view-start))
 	      (end (plist-get props :jmail-view-end)))
     (jmail-view-thread--add-fold-overlay data start end)))
+
+(defun jmail-view-thread--unfold-all-mails (start)
+  (with-jmail-view-buffer
+   (save-excursion
+     (goto-char start)
+     (catch 'exit-loop
+       (while (not (eobp))
+	 (when-let* ((overlay (jmail-view-thread--find-fold-overlay (line-beginning-position)
+								    (line-end-position)))
+		     (ov-start (overlay-start overlay))
+		     (ov-end (overlay-end overlay))
+		     (props (overlay-properties overlay))
+		     (data (plist-get props 'jmail-view-data)))
+	   (delete-overlay overlay)
+	   (when (plist-get data :unload)
+	     (let* ((path (plist-get data :path))
+		    (thread (plist-get data :thread))
+		    (after-load-cb (apply-partially #'jmail-view-thread--unfold-all-mails
+						    ov-start))
+		    (handler (apply-partially #'jmail-view-thread--load-mail
+					      ov-start thread after-load-cb)))
+	       (jmail-view--get-mail-data path handler)
+	       (throw 'exit-loop nil)))
+	   (goto-char ov-end))
+	 (forward-line))))
+   (goto-char (point-min))))
 
 (defun jmail-view-thread--setup-buffer (buffer)
   (with-current-buffer (get-buffer-create jmail-view--buffer-name)
@@ -135,7 +207,6 @@
 (defun jmail-view-thread--clean-up ()
   (with-jmail-view-buffer
    (delete-all-overlays)
-   (setq jmail-view-thread--fold-overlays nil)
    (erase-buffer)))
 
 (defun jmail-view-thread--mark-as-read ()
@@ -173,24 +244,30 @@
 
 (defun jmail-view-thread-next ()
   (interactive)
-  (when-let* ((props (text-properties-at (point)))
-	      (end (plist-get props :jmail-view-end)))
-    (goto-char end)
-    (unless (= (+ (point) 1) (point-max))
+  (if (jmail-view-thread--find-fold-overlay (line-beginning-position)
+					    (line-end-position))
       (forward-line)
-      (when-let* ((props (text-properties-at (point)))
-		  (header (plist-get props :jmail-view-header)))
-	(goto-char header)))))
+    (when-let* ((props (text-properties-at (point)))
+		(end (plist-get props :jmail-view-end)))
+      (goto-char end)
+      (unless (= (+ (point) 1) (point-max))
+	(forward-line)
+	(when-let* ((props (text-properties-at (point)))
+		    (header (plist-get props :jmail-view-header)))
+	  (goto-char header))))))
 
 (defun jmail-view-thread-previous ()
   (interactive)
-  (when-let* ((props (text-properties-at (point)))
-	      (start (plist-get props :jmail-view-start)))
-    (goto-char start)
-    (forward-line -1)
+  (forward-line -1)
+  (unless (jmail-view-thread--find-fold-overlay (line-beginning-position)
+						(line-end-position))
     (when-let* ((props (text-properties-at (point)))
-		(header (plist-get props :jmail-view-header)))
-      (goto-char header))))
+		(start (plist-get props :jmail-view-start)))
+      (goto-char start)
+      (forward-line -1)
+      (when-let* ((props (text-properties-at (point)))
+		  (header (plist-get props :jmail-view-header)))
+	(goto-char header)))))
 
 (defun jmail-view-thread-search-next ()
   (interactive)
@@ -210,22 +287,28 @@
   (interactive)
   (if-let* ((overlay (jmail-view-thread--find-fold-overlay (line-beginning-position)
 							   (line-end-position)))
-	    (props (text-properties-at (point)))
-	    (header (plist-get props :jmail-view-header)))
+	    (start (overlay-start overlay))
+	    (props (overlay-properties overlay))
+	    (data (plist-get props 'jmail-view-data)))
       (progn
-	(jmail-view-thread--remove-fold-overlay overlay)
-	(goto-char header)
-	(jmail-view-thread--mark-as-read))
+	(delete-overlay overlay)
+	(if (plist-get data :unload)
+	    (let* ((path (plist-get data :path))
+		   (thread (plist-get data :thread))
+		   (handler (apply-partially #'jmail-view-thread--load-mail
+					     start thread nil)))
+	      (jmail-view--get-mail-data path handler))
+	  (when-let* ((props (text-properties-at start))
+		      (header (plist-get props :jmail-view-header)))
+	    (goto-char header))))
     (jmail-view-thread--fold-current-mail)))
 
 (defun jmail-view-thread-fold-unfold-all-mails ()
   (interactive)
-  (if jmail-view-thread--fold-overlays
-      (progn
-	(mapc #'jmail-view-thread--remove-fold-overlay jmail-view-thread--fold-overlays)
-	(jmail-view-thread--mark-all-as-read))
+  (if (jmail-view-thread--fold-overlays-p)
+      (jmail-view-thread--unfold-all-mails (point-min))
+    (goto-char (point-min))
     (save-excursion
-      (goto-char (point-min))
       (while (< (point) (point-max))
 	(jmail-view-thread--fold-current-mail)
 	(line-move 1)))))
@@ -234,11 +317,11 @@
   (interactive)
   (message "Not supported in jmail view thread"))
 
-(defun jmail-view-thread (current-path paths buffer)
+(defun jmail-view-thread (target objects buffer)
   (if (get-buffer jmail-view--buffer-name)
       (pop-to-buffer jmail-view--buffer-name)
     (jmail-view-thread--setup-buffer buffer))
   (jmail-view-thread--clean-up)
-  (jmail-view-thread--insert-mails current-path paths))
+  (jmail-view-thread--insert-mails target objects))
 
 (provide 'jmail-view-thread)

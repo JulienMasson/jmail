@@ -629,12 +629,12 @@
       (unless (= start end)
 	(list start end)))))
 
-(defun jmail-search--paths-from-thread ()
-  (let ((paths))
+(defun jmail-search--objects-from-thread ()
+  (let ((objects))
     (jmail-search--foreach-line-thread
-     (when-let ((path (jmail-search--path)))
-       (add-to-list 'paths path t)))
-    paths))
+     (when-let ((object (text-properties-at (point))))
+       (add-to-list 'objects object t)))
+    objects))
 
 (defun jmail-search--find-fold-overlay (start end)
   (cl-find-if (lambda (ov)
@@ -975,8 +975,7 @@
 	  (thread (plist-get object :thread)))
      (if (and jmail-view-thread-default-view thread
 	      (not (plist-get thread :empty-parent)))
-	 (jmail-view-thread (jmail-search--path)
-			    (jmail-search--paths-from-thread)
+	 (jmail-view-thread object (jmail-search--objects-from-thread)
 			    (current-buffer))
        (jmail-search--mark-as-read)
        (jmail-search--update-fold-overlay)
