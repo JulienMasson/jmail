@@ -155,7 +155,6 @@
 	(pcase-let ((`(,root ,child) (split-string subdir "/")))
 	  (if-let ((childs (assoc-default root data)))
 	      (setcdr (assoc root data) (append childs (list (cons child maildir))))
-	    (message "%s" root)
 	    (add-to-list 'data (cons root (list (cons child maildir))) t)))))
     data))
 
