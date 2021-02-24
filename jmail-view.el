@@ -47,6 +47,7 @@
 
 (define-derived-mode jmail-view-mode text-mode
   "jmail view"
+  (setq-local font-lock-defaults '(jmail-font-lock t))
   (toggle-read-only t))
 
 ;;; Customization
