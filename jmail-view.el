@@ -178,14 +178,12 @@
 	     (setq jmail-view--html-view nil))
 	   (insert "\n" plain-text "\n")))))
 
-(defun jmail-view--fontify-mail (start)
-  (setq-local font-lock-defaults '(jmail-font-lock t))
+(defun jmail-view--fontify-mail (start end)
   (save-excursion
     (goto-char start)
-    (let ((limit (if jmail-view--html-view (jmail-view-eoh-mail-point) (point-max))))
-      (while (and (not (eobp)) (< (point) limit))
-	(font-lock-fontify-region (line-beginning-position) (line-end-position))
-	(forward-line)))
+    (while (and (not (eobp)) (< (point) end))
+      (font-lock-fontify-region (line-beginning-position) (line-end-position))
+      (forward-line))
     (goto-address-fontify start (point-max))))
 
 (defun jmail-view--insert-mail (data)
@@ -195,7 +193,9 @@
    (unless jmail-view--html-view
      (jmail-view--clean-body))
    (add-text-properties (point-min) (point-max) (list :jmail-view-data data))
-   (jmail-view--fontify-mail (point-min))
+   (jmail-view--fontify-mail (point-min) (if jmail-view--html-view
+					     (jmail-view-eoh-mail-point)
+					   (point-max)))
    (set-buffer-modified-p nil)
    (goto-char (point-min))))
 
