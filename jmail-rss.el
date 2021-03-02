@@ -158,7 +158,7 @@
 (defun jmail-rss-fetch-refresh-now ()
   (interactive)
   (if jmail-rss-fetch-refresh-every
-      (jmail-rss--restart-fetch-timer)
+      (jmail-rss--restart-fetch-refresh-timer)
     (jmail-rss-fetch-refresh)))
 
 (provide 'jmail-rss)
