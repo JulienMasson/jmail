@@ -265,14 +265,13 @@
 (defun jmail-view--autodetect-account (data)
   (if-let* ((accounts (jmail-get-accounts jmail-smtp-config-file))
 	    (accounts-address (mapcar #'cddr accounts))
-	    (props (text-properties-at (point)))
-	    (to (plist-get data :to))
-	    (to-address (mapcar #'cdr to))
-	    (address (car (cl-intersection accounts-address to-address
+	    (target (append (plist-get data :from)
+			    (plist-get data :to)
+			    (plist-get data :cc)))
+	    (target-address (mapcar #'cdr target))
+	    (address (car (cl-intersection accounts-address target-address
 					   :test #'string=))))
-      (seq-find (lambda (elem)
-		  (string= address (cddr elem)))
-		accounts)
+      (cl-find-if (lambda (e) (string= address (cddr e))) accounts)
     (when-let ((accounts (jmail-get-accounts jmail-smtp-config-file))
 	       (account (completing-read "Select account: "
 					 (mapcar #'car accounts))))
