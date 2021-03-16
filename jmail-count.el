@@ -33,20 +33,28 @@
 
 ;;; Internal Functions
 
-(defun jmail-count--get-args (query)
-  (list "find" "--fields" " " query))
+(defun jmail-count--program (query)
+  (format "%s find --fields p %s | wc -l"
+	  (jmail-find-program jmail-index-program)
+	  (shell-quote-argument query)))
 
 (defun jmail-count--call-cb (count)
   (when jmail-count--current
     (when-let ((cb (cadr jmail-count--current)))
       (jmail-funcall cb count))))
 
+(defun jmail-count--number (buffer)
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (string-to-number (buffer-substring (line-beginning-position)
+					  (line-end-position))))))
+
 (defun jmail-count--process-sentinel (process status)
   (when (eq (process-status process) 'exit)
     (if (and (eq (process-exit-status process) 0)
-  	     (buffer-live-p (process-buffer process)))
-	(with-current-buffer (process-buffer process)
-	  (jmail-count--call-cb (- (line-number-at-pos (point-max)) 1)))
+	     (buffer-live-p (process-buffer process)))
+	(jmail-count--call-cb (jmail-count--number (process-buffer process)))
       (jmail-count--call-cb 0)))
   (if jmail-count--queues
       (apply #'jmail-count--process (pop jmail-count--queues))
@@ -55,11 +63,10 @@
 
 (defun jmail-count--process (query cb)
   (when-let* ((default-directory jmail-top-maildir)
-	      (program (jmail-find-program jmail-index-program))
-	      (args (jmail-count--get-args query))
+	      (program (jmail-count--program query))
 	      (buffer (get-buffer-create jmail-count--buffer-name))
-	      (process (apply 'start-file-process "jmail-count" buffer
-			      program args)))
+	      (process (start-file-process-shell-command
+			"jmail-count" buffer program)))
     (with-current-buffer buffer
       (erase-buffer))
     (setq jmail-count--current (list query cb))
