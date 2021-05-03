@@ -23,51 +23,17 @@
 
 ;;; Code:
 
-(require 'xwidget)
-
-;;; Mode
-
-(defvar jmail-html-view-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "q" 'jmail-html-view-quit)
-    map)
-  "Keymap for `jmail-html-view-mode'")
-
-(define-derived-mode jmail-html-view-mode xwidget-webkit-mode "jmail html view")
+(require 'webkit)
 
 ;;; Internal Variables
 
 (defvar-local jmail-html-view--dir nil)
 
-(defvar jmail-html-view-buffer "*jmail-html-view*")
-
 ;;; Internal Functions
 
-(defun jmail-html--xwidget-webkit-callback (xwidget xwidget-event-type)
-  (when (and (buffer-live-p (xwidget-buffer xwidget))
-	     (eq xwidget-event-type 'decide-policy))
-    (let ((url (nth 3 last-input-event)))
-      (when (string-match "^http.*" url)
-	(browse-url url)))))
-
-(defun jmail-html--new-session (dir url)
-  (with-current-buffer (get-buffer-create jmail-html-view-buffer)
-    (setq xwidget-webkit-last-session-buffer (current-buffer))
-    (insert (propertize url 'invisible t))
-    (let* ((width (xwidget-window-inside-pixel-width (selected-window)))
-	   (height (xwidget-window-inside-pixel-height (selected-window)))
-	   (xw (xwidget-insert (point-min) 'webkit (buffer-name) width height)))
-      (xwidget-put xw 'callback #'jmail-html--xwidget-webkit-callback)
-      (jmail-html-view-mode)
-      (xwidget-webkit-goto-uri xw url)
-      (setq jmail-html-view--dir dir)
-      (switch-to-buffer (current-buffer)))))
-
 (defun jmail-html--remove-dir ()
-  (when-let ((buffer (get-buffer jmail-html-view-buffer)))
-    (with-current-buffer buffer
-      (when (and jmail-html-view--dir (file-exists-p jmail-html-view--dir))
-	(delete-directory jmail-html-view--dir t)))))
+  (when (and jmail-html-view--dir (file-exists-p jmail-html-view--dir))
+    (delete-directory jmail-html-view--dir t)))
 
 ;;; External Functions
 
@@ -75,14 +41,14 @@
   (interactive)
   (jmail-html--remove-dir)
   (let ((kill-buffer-query-functions nil))
-    (kill-current-buffer))
-  (xwidget-delete-zombies))
+    (kill-current-buffer)))
 
 (defun jmail-html-open (file)
-  (if-let ((dir (file-name-directory file))
-	   (url (concat "file://" file))
-	   (xwidget (xwidget-webkit-current-session)))
-      (xwidget-webkit-goto-uri xwidget url)
-    (jmail-html--new-session dir url)))
+  (when-let ((dir (file-name-directory file))
+	     (url (concat "file://" file)))
+    (browse-url url)))
+    ;; (with-current-buffer (webkit-browse-url url)
+    ;;   (define-key webkit-mode-map "q" 'jmail-html-view-quit)
+    ;;   (setq jmail-html-view--dir dir))))
 
 (provide 'jmail-html)

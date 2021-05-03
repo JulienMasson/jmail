@@ -48,7 +48,7 @@
 (define-derived-mode jmail-view-mode text-mode
   "jmail view"
   (setq-local font-lock-defaults '(jmail-font-lock t))
-  (setq truncate-lines t)
+  (setq truncate-lines nil)
   (toggle-read-only t))
 
 ;;; Customization
@@ -85,13 +85,16 @@
   (switch-to-buffer jmail-view--buffer-name))
 
 (defun jmail-view--clean-body ()
-  (let ((clean-actions '(("$"            "")
-			 (">[[:blank:]]+>" ">>")
-			 (">[[:blank:]]+"  "> "))))
+  (let* ((clean-actions '(("$"            "")
+			  (">[[:blank:]]+>" ">>")
+			  (">[[:blank:]]+"  "> ")))
+	 (props (text-properties-at (point)))
+	 (start (jmail-view-eoh-mail-point))
+	 (end (plist-get props :jmail-view-end)))
     (save-excursion
       (dolist (action clean-actions)
-	(message-goto-body)
-	(while (re-search-forward (car action) nil t)
+	(goto-char start)
+	(while (re-search-forward (car action) end t)
 	  (replace-match (cadr action)))))))
 
 (defun jmail-view--fill-line ()
@@ -172,12 +175,10 @@
 	       (jmail-view--insert-html html)
 	     (insert "\n" plain-text "\n")))
 	  ((and html (not plain-text))
-	   (unless jmail-view--html-view
-	     (setq jmail-view--html-view t))
+	   (setq jmail-view--html-view t)
 	   (jmail-view--insert-html html))
 	  ((and (not html) plain-text)
-	   (when jmail-view--html-view
-	     (setq jmail-view--html-view nil))
+	   (setq jmail-view--html-view nil)
 	   (insert "\n" plain-text "\n")))))
 
 (defun jmail-view--fontify-mail (start end)
@@ -192,9 +193,12 @@
   (with-jmail-view-buffer
    (erase-buffer)
    (jmail-view--insert-contents data)
+   (add-text-properties (point-min) (point-max) (list :jmail-view-data data
+						      :jmail-view-start (point-min)
+						      :jmail-view-header (point-min)
+						      :jmail-view-end (point-max)))
    (unless jmail-view--html-view
      (jmail-view--clean-body))
-   (add-text-properties (point-min) (point-max) (list :jmail-view-data data))
    (jmail-view--fontify-mail (point-min) (if jmail-view--html-view
 					     (jmail-view-eoh-mail-point)
 					   (point-max)))

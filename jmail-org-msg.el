@@ -146,8 +146,10 @@
 (defun org-msg-save-article-for-reply-jmail ()
   "Export the currently visited jmail article as HTML."
   (with-jmail-view-buffer
-   (when-let* ((html (plist-get jmail-view--data :body-html))
-	       (message-id (plist-get jmail-view--data :message-id))
+   (when-let* ((props (text-properties-at (point)))
+	       (data (plist-get props :jmail-view-data))
+	       (html (plist-get data :body-html))
+	       (message-id (plist-get data :message-id))
 	       (file (concat (temporary-file-directory) message-id)))
      (cl-flet* ((mails2str (l)
 		  (mapconcat (lambda (m)

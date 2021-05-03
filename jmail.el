@@ -323,7 +323,8 @@
       (jmail-abort "`jmail-top-maildir' and `jmail-sync-config-file' doesn't have common host")))
   (unless jmail-smtp-config-file
     (jmail-abort "Please set `jmail-smtp-config-file'"))
-  (jmail-update-check-database))
+  )
+  ;; (jmail-update-check-database))
 
 ;;; External Functions
 

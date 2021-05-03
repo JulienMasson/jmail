@@ -397,6 +397,7 @@
 (defun jmail-search--args (query thread related)
   (let ((option "find")
 	(default-args (list "--reverse"
+			    "--skip-dups"
 			    "--format=sexp"
 			    query)))
     (when thread
@@ -599,15 +600,15 @@
 		       (end (save-excursion
 			      (goto-char end-region)
 			      (line-end-position)))
-		       start)
-	   (deactivate-mark)
-	   (goto-char beg)
-	   (save-fold-overlays
-	    (setq start (point))
-	    (while (and (<= (point) end) (not (eobp)))
-	      ,@body
-	      (forward-line)))
-	    (list start (line-beginning-position)))))))
+		       init-start)
+	  (deactivate-mark)
+	  (goto-char beg)
+	  (save-fold-overlays
+	   (setq init-start (point))
+	   (while (and (<= (point) end) (not (eobp)))
+	     ,@body
+	     (forward-line)))
+	  (list init-start (line-beginning-position)))))))
 
 (defun jmail-search--thread-empty-parent-at-point ()
   (when-let* ((object (text-properties-at (point)))
@@ -710,10 +711,10 @@
 
 (defun jmail-search--remove-overlay-range (start end)
   (save-excursion
-    (goto-char start)
-    (while (< (point) end)
+    (goto-char end)
+    (while (> (point) start)
       (jmail-search--remove-overlay)
-      (next-line))))
+      (previous-line))))
 
 (defun jmail-search--delete-region (start end)
   (with-jmail-search-buffer
