@@ -109,6 +109,8 @@
        (setq header (point))
        (setq data (append data (list :thread thread)))
        (jmail-view--insert-contents data)
+       (unless jmail-view--html-view
+	 (jmail-view--clean-body))
        (setq end (point))
        (add-text-properties start end (list :jmail-view-data data
 					    :jmail-view-start start
@@ -233,7 +235,8 @@
 (defun jmail-view-thread--clean-up ()
   (with-jmail-view-buffer
    (delete-all-overlays)
-   (erase-buffer)))
+   (erase-buffer)
+   (setq jmail-view--html-view jmail-view-html-default-view)))
 
 (defun jmail-view-thread--mark-as-read ()
   (let* ((props (text-properties-at (point)))
