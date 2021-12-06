@@ -23,8 +23,6 @@
 
 ;;; Code:
 
-(require 'webkit)
-
 ;;; Internal Variables
 
 (defvar-local jmail-html-view--dir nil)
@@ -47,8 +45,5 @@
   (when-let ((dir (file-name-directory file))
 	     (url (concat "file://" file)))
     (browse-url url)))
-    ;; (with-current-buffer (webkit-browse-url url)
-    ;;   (define-key webkit-mode-map "q" 'jmail-html-view-quit)
-    ;;   (setq jmail-html-view--dir dir))))
 
 (provide 'jmail-html)
