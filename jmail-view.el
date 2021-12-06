@@ -366,9 +366,8 @@
      (message-goto-body))))
 
 (defun jmail-view-save-attachments (attachments outdir)
-  (interactive (list (completing-read "Save: "
-				      (jmail-view--attachments-prompt))
-		     (read-directory-name "Path: ")))
+  (interactive (list (completing-read "Save: " (jmail-view--attachments-prompt))
+		     (read-directory-name "Path: " "~/Downloads/")))
   (when-let* ((data (jmail-view--data-at-point))
 	      (msg-path (plist-get data :path))
 	      (attachments-list (jmail-view--get-attachments data)))
