@@ -47,7 +47,6 @@
 
 (define-derived-mode jmail-view-mode text-mode
   "jmail view"
-  (setq-local font-lock-defaults '(jmail-font-lock t))
   (setq truncate-lines nil)
   (toggle-read-only t))
 
@@ -84,19 +83,6 @@
   (select-window (jmail-split-window-below buffer))
   (switch-to-buffer jmail-view--buffer-name))
 
-(defun jmail-view--clean-body ()
-  (let* ((clean-actions '(("$"            "")
-			  (">[[:blank:]]+>" ">>")
-			  (">[[:blank:]]+"  "> ")))
-	 (props (text-properties-at (point)))
-	 (start (jmail-view-eoh-mail-point))
-	 (end (plist-get props :jmail-view-end)))
-    (save-excursion
-      (dolist (action clean-actions)
-	(goto-char start)
-	(while (re-search-forward (car action) end t)
-	  (replace-match (cadr action)))))))
-
 (defun jmail-view--fill-line ()
   (let* ((indentation (get-text-property (point) 'shr-indentation))
 	 (level (/ indentation 32))
@@ -113,6 +99,58 @@
     (let ((beg (point)))
       (insert html)
       (shr-render-region beg (point)))))
+
+(defun jmail-view--clean-text (plain-text)
+  (with-temp-buffer
+    (insert plain-text)
+    (goto-char (point-min))
+    (let ((clean-actions '(("$"            "")
+			   (">[[:blank:]]+>" ">>")
+			   (">[[:blank:]]+"  "> "))))
+      (save-excursion
+        (dolist (action clean-actions)
+	  (while (re-search-forward (car action) nil t)
+	    (replace-match (cadr action))))))
+    (buffer-string)))
+
+(defun jmail-view--diff ()
+  (when (re-search-forward "^diff \-\-git" nil t)
+    (diff-mode)
+    (org-font-lock-ensure)))
+
+(defun jmail-view--cited ()
+  (let ((regexp (concat "^\\(" message-cite-prefix-regexp "\\).*")))
+    (while (re-search-forward regexp nil t)
+      (set-text-properties (line-beginning-position) (line-end-position)
+                           (list 'face (jmail-font-lock--cited-face))))))
+
+(defun jmail-view--insert-plain-text (plain-text)
+  (let ((text (with-temp-buffer
+                (insert (jmail-view--clean-text plain-text))
+                (dolist (func (list #'jmail-view--diff
+                                    #'jmail-view--cited))
+                  (save-excursion
+                    (goto-char (point-min))
+                    (funcall func)))
+                (buffer-string))))
+    (insert "\n" text "\n")))
+
+(defun jmail-view--insert-headers (from to cc mailing-list subject date attachments)
+  (insert (with-temp-buffer
+            (setq-local font-lock-defaults '(message-font-lock-keywords t))
+            (cl-macrolet ((insert-header (field)
+		            `(when ,field
+		               (message-insert-header ',field ,field)
+		               (insert "\n"))))
+              (insert-header from)
+              (insert-header to)
+              (insert-header cc)
+              (insert-header mailing-list)
+              (insert-header subject)
+              (insert-header date)
+              (insert-header attachments))
+            (font-lock-ensure)
+            (buffer-string))))
 
 (defun jmail-view--address-str (data field)
   (when-let ((address (plist-get data field)))
@@ -159,35 +197,17 @@
 	(attachments (jmail-view--attachments-str data))
 	(plain-text (plist-get data :body-txt))
 	(html (plist-get data :body-html)))
-    (cl-macrolet ((insert-header (field)
-		   `(when ,field
-		      (message-insert-header ',field ,field)
-		      (insert "\n"))))
-      (insert-header from)
-      (insert-header to)
-      (insert-header cc)
-      (insert-header mailing-list)
-      (insert-header subject)
-      (insert-header date)
-      (insert-header attachments))
+    (jmail-view--insert-headers from to cc mailing-list subject date attachments)
     (cond ((and html plain-text)
 	   (if jmail-view--html-view
 	       (jmail-view--insert-html html)
-	     (insert "\n" plain-text "\n")))
+	     (jmail-view--insert-plain-text plain-text)))
 	  ((and html (not plain-text))
 	   (setq jmail-view--html-view t)
 	   (jmail-view--insert-html html))
 	  ((and (not html) plain-text)
 	   (setq jmail-view--html-view nil)
-	   (insert "\n" plain-text "\n")))))
-
-(defun jmail-view--fontify-mail (start end)
-  (save-excursion
-    (goto-char start)
-    (while (and (not (eobp)) (< (point) end))
-      (font-lock-fontify-region (line-beginning-position) (line-end-position))
-      (forward-line))
-    (goto-address-fontify start (point-max))))
+           (jmail-view--insert-plain-text plain-text)))))
 
 (defun jmail-view--insert-mail (data)
   (with-jmail-view-buffer
@@ -197,11 +217,6 @@
 						      :jmail-view-start (point-min)
 						      :jmail-view-header (point-min)
 						      :jmail-view-end (point-max)))
-   (unless jmail-view--html-view
-     (jmail-view--clean-body))
-   (jmail-view--fontify-mail (point-min) (if jmail-view--html-view
-					     (jmail-view-eoh-mail-point)
-					   (point-max)))
    (set-buffer-modified-p nil)
    (goto-char (point-min))))
 
@@ -250,8 +265,7 @@
     (insert "\n")
     (message-insert-formatted-citation-line from (message-make-date))
     (let ((beg (point)))
-      (insert plain-text)
-      (jmail-view--clean-body)
+      (insert (jmail-view--clean-text plain-text))
       (jmail-view--citation beg (jmail-view--signature-begin)))))
 
 (defun jmail-view--insert-forward-text (from date to cc subject plain-text)

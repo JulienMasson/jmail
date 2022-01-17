@@ -109,14 +109,11 @@
        (setq header (point))
        (setq data (append data (list :thread thread)))
        (jmail-view--insert-contents data)
-       (unless jmail-view--html-view
-	 (jmail-view--clean-body))
        (setq end (point))
        (add-text-properties start end (list :jmail-view-data data
 					    :jmail-view-start start
 					    :jmail-view-header header
 					    :jmail-view-end end))
-       (jmail-view--fontify-mail header end)
        (set-buffer-modified-p nil)
        (unless (= (point) (point-max))
 	 (jmail-view-thread--update-props (+ end 1) (- end start)))
