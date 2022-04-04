@@ -372,6 +372,32 @@
 				    :auto-fold-thread auto-fold-thread
 				    :related related))))))
 
+(defun jmail-autofill-queries-from-maildir (maildir &rest plist)
+  (let* ((path (expand-file-name (format "%s/%s" jmail-top-maildir maildir)))
+	 (dirs (directory-files-recursively path "cur$" t))
+         (queries (mapcar (lambda (dir)
+                            (let* ((pattern (format "%s/\\(.*\\)/cur" path))
+                                   (subdir (replace-regexp-in-string pattern "\\1" dir))
+                                   (query (format "maildir:/%s/%s" maildir subdir)))
+                              (cons subdir query)))
+                          dirs))
+         (all (mapconcat #'cdr queries " or "))
+         (thread (plist-get plist :thread))
+	 (auto-fold-thread (plist-get plist :auto-fold-thread))
+	 (related (plist-get plist :related)))
+      (jmail-add-group :name maildir
+		       :query all
+		       :thread thread
+		       :auto-fold-thread auto-fold-thread
+		       :related related)
+	(dolist (query queries)
+	  (jmail-add-query-to-group maildir
+				    :name (car query)
+				    :query (cdr query)
+				    :thread thread
+				    :auto-fold-thread auto-fold-thread
+				    :related related))))
+
 (defun jmail-refresh-at-point ()
   (interactive)
   (when-let* ((props (text-properties-at (point)))
