@@ -1,10 +1,10 @@
-;;; jmail-company.el --- XXXX
+;;; jmail-capf.el --- Completion at point function
 
-;; Copyright (C) 2019 Julien Masson.
+;; Copyright (C) 2022 Julien Masson.
 
 ;; Author: Julien Masson
 ;; URL: https://github.com/JulienMasson/jm-config
-;; Created: 2019-07-12
+;; Created: 2022-08-27
 
 ;;; License
 
@@ -23,16 +23,9 @@
 
 ;;; Code:
 
-(require 'company)
-
-;;; Internal Variables
-
-(defconst jmail-company--address-fields-regexp
-  "^\\(To\\|B?Cc\\|Reply-To\\|From\\):.*")
-
 ;;; Internal Functions
 
-(defun jmail-company--candidate-at-line ()
+(defun jmail-capf--candidate-at-line ()
   (when-let ((str (buffer-substring (line-beginning-position)
 				    (line-end-position)))
 	     (mail-regexp "\\([[:graph:]]*\\)@\\([[:graph:]]*\\)$"))
@@ -44,33 +37,44 @@
 	   (format "<%s@%s>" (match-string 1 str)
 		   (match-string 2 str))))))
 
-(defun jmail-company--candidates (arg)
+(defun jmail-capf--candidates (arg)
   (let ((args (list "cfind" "--nocolor" arg))
 	candidates)
     (with-temp-buffer
       (apply #'process-file "mu" nil (current-buffer) nil args)
       (goto-char (point-min))
       (while (not (eobp))
-	(add-to-list 'candidates (jmail-company--candidate-at-line))
+	(add-to-list 'candidates (jmail-capf--candidate-at-line))
 	(forward-line)))
     candidates))
 
+(defun jmail-capf--expand-name ()
+  (let ((beg (save-excursion
+               (skip-chars-backward "^\n:,") (skip-chars-forward " \t")
+               (point)))
+        (end (save-excursion
+               (skip-chars-forward "^\n,") (skip-chars-backward " \t")
+               (point))))
+    (when (< beg end)
+      (let ((candidates (jmail-capf--candidates (buffer-substring beg end))))
+        (list beg end `(lambda (string pred action)
+                         (pcase action
+                           ('metadata '(metadata (category . email)))
+                           ('lambda t)
+                           ('nil (try-completion string ,candidates))
+                           ('t (all-completions "" ',candidates pred)))))))))
+
+(defun jmail-capf--in-header ()
+  (let ((mail-abbrev-mode-regexp message-email-recipient-header-regexp))
+    (mail-abbrev-in-expansion-header-p)))
+
 ;;; External Functions
 
-(defun jmail-company (command &optional arg &rest _ignore)
-  (interactive (list 'interactive))
-  (cl-case command
-    (interactive (company-begin-backend 'jmail-company))
-    (prefix (and (derived-mode-p 'message-mode 'org-msg-edit-mode)
-		 (looking-back jmail-company--address-fields-regexp
-			       (line-beginning-position))
-		 (company-grab "[:,][ \t]*\\(.*\\)" 1
-			       (line-beginning-position))))
-    (candidates (jmail-company--candidates arg))
-    (no-cache t)))
+(defun jmail-completion-at-point ()
+  (when (jmail-capf--in-header)
+    (jmail-capf--expand-name)))
 
-(defun jmail-company-setup ()
-  (company-mode)
-  (setq-local company-backends '(jmail-company)))
+(defun jmail-capf-setup ()
+  (add-hook 'completion-at-point-functions #'jmail-completion-at-point nil t))
 
-(provide 'jmail-company)
+(provide 'jmail-capf)
