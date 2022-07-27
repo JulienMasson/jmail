@@ -23,7 +23,7 @@
 
 ;;; Code:
 
-(require 'jmail-company)
+(require 'jmail-capf)
 (require 'jmail-font-lock)
 
 ;;; Mode
@@ -76,7 +76,7 @@
       (message-hide-headers)
       (set-buffer-modified-p nil)
       (jmail-compose-mode)
-      (jmail-company-setup)
+      (jmail-capf-setup)
       (jmail-compose-setup-send-mail)
       (jmail-compose-set-extra-arguments account from-email)
       (message-goto-to)

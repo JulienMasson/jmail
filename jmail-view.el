@@ -339,7 +339,7 @@
        (jmail-view--insert-reply-text (jmail-make-address-str sender)
 				      plain-text))
      (jmail-compose-mode)
-     (jmail-company-setup)
+     (jmail-capf-setup)
      (jmail-compose-setup-send-mail)
      (jmail-compose-set-extra-arguments (car account) from-email)
      (message-goto-body))))
@@ -374,7 +374,7 @@
      (jmail-compose-mode)
      (when attachments
        (jmail-view--add-attachments msg-path attachments))
-     (jmail-company-setup)
+     (jmail-capf-setup)
      (jmail-compose-setup-send-mail)
      (jmail-compose-set-extra-arguments (car account) from-email)
      (message-goto-body))))
