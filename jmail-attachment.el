@@ -51,9 +51,10 @@
     (set-process-sentinel process 'jmail-attachment--process-sentinel)))
 
 (defun jmail-attachment--build-args (outdir msg-path args)
-  (list "extract" "--overwrite"
-	(concat "--target-dir=" (shell-quote-argument outdir))
-	args msg-path))
+  (let ((dir (expand-file-name outdir)))
+    (list "extract" "--overwrite"
+	  (concat "--target-dir=" (shell-quote-argument dir))
+	  args msg-path)))
 
 ;;; External Functions
 
