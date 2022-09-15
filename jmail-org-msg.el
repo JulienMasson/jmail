@@ -124,10 +124,9 @@
   (interactive)
   (let* ((dir (make-temp-file "org-msg-" t))
 	 (file (concat dir "/file.html"))
-	 (mail (org-msg-build (buffer-substring (org-msg-start)
-						(org-msg-end)))))
-    (with-temp-file file
-      (insert (org-msg-xml-to-str mail)))
+         (contents (buffer-substring (org-msg-start) (org-msg-end)))
+	 (contents-html (org-msg-export-as-html contents)))
+    (with-temp-file file (insert contents-html))
     (jmail-html-open file)))
 
 (defun jmail-org-msg-attach-dired-files ()
