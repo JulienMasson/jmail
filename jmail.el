@@ -78,7 +78,7 @@
   (jmail--update-header-line jmail--default-header)
   (jmail--insert-header)
   (jmail--fill-buffer)
-  (toggle-read-only t))
+  (setq buffer-read-only t))
 
 ;;; Faces
 
