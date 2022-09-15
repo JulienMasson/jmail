@@ -42,11 +42,11 @@
 	       (subject (plist-get object :subject))
 	       (default-directory dir)
 	       (tmp-patch (concat default-directory ".jmail.patch")))
-     (when (string-match "^\\[PATCH " subject)
+     (when (string-match "^\\[.*PATCH" subject)
        (if (not (tramp-tramp-file-p default-directory))
 	   (shell-command (concat "git am " msg))
 	 (copy-file msg tmp-patch t)
-	 (shell-command (concat "git am " (jmail-untramp-path tmp-patch)))
+	 (async-shell-command (concat "git am " (jmail-untramp-path tmp-patch)))
 	 (delete-file tmp-patch))))))
 
 (defun jmail-apply-patch-series (dir)
