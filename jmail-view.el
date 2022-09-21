@@ -48,7 +48,7 @@
 (define-derived-mode jmail-view-mode text-mode
   "jmail view"
   (setq truncate-lines nil)
-  (toggle-read-only t))
+  (setq buffer-read-only t))
 
 ;;; Customization
 

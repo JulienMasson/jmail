@@ -43,7 +43,7 @@
   (setq-local hl-line-face 'jmail-search-hl-line)
   (setq truncate-lines t)
   (add-hook 'window-scroll-functions #'jmail-nntp--after-scroll nil t)
-  (toggle-read-only t))
+  (setq buffer-read-only t))
 
 ;;; Customization
 
