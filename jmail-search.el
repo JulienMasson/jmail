@@ -198,7 +198,7 @@
     (plist-get object :path)))
 
 (defun jmail-search--thread (object)
-  (when-let ((thread (plist-get object :thread)))
+  (when-let ((thread (plist-get object :meta)))
     (let* ((level (plist-get thread :level))
 	   (last-child (plist-get thread :last-child))
 	   (spaces (make-string (* level 2) (string-to-char " ")))
@@ -219,11 +219,11 @@
 		'face 'font-lock-comment-face)))
 
 (defun jmail-search--from (object)
-  (if-let ((from (car (plist-get object :from))))
-      (if-let ((name (car from)))
-	  (propertize (truncate-string-to-width name jmail-search-from-width)
-		      'face 'font-lock-variable-name-face)
-	(propertize (truncate-string-to-width (cdr from) jmail-search-from-width)
+  (if-let* ((from (car (plist-get object :from)))
+            (email (plist-get from :email)))
+      (let* ((name (plist-get from :name))
+             (str (if name name email)))
+	(propertize (truncate-string-to-width str jmail-search-from-width)
 		    'face 'font-lock-variable-name-face))
     (propertize "unknown" 'face 'font-lock-variable-name-face)))
 
@@ -545,12 +545,12 @@
 (defun jmail-search--thread-level-at-point ()
   (with-jmail-search-buffer
    (when-let* ((object (text-properties-at (point)))
-	       (thread (plist-get object :thread)))
+	       (thread (plist-get object :meta)))
        (plist-get thread :level))))
 
 (defun jmail-search--goto-root-thread ()
   (when-let* ((object (text-properties-at (point)))
-	      (thread (plist-get object :thread))
+	      (thread (plist-get object :meta))
 	      (level (plist-get thread :level)))
     (unless (zerop level)
       (previous-line)
@@ -612,7 +612,7 @@
 
 (defun jmail-search--thread-empty-parent-at-point ()
   (when-let* ((object (text-properties-at (point)))
-	      (thread (plist-get object :thread)))
+	      (thread (plist-get object :meta)))
        (plist-get thread :empty-parent)))
 
 (defun jmail-search--thread-range ()
@@ -685,7 +685,7 @@
       (overlay-put overlay 'before-string prefix))))
 
 (defun jmail-search--fold-current-thread (object)
-  (when-let ((thread (plist-get object :thread)))
+  (when-let ((thread (plist-get object :meta)))
     (let ((level (plist-get thread :level))
 	  (empty-parent (plist-get thread :empty-parent))
 	  (start (plist-get object :subject-start))
@@ -978,7 +978,7 @@
   (interactive)
   (with-jmail-search-buffer
    (let* ((object (text-properties-at (point)))
-	  (thread (plist-get object :thread)))
+	  (thread (plist-get object :meta)))
      (if (and jmail-view-thread-default-view thread
 	      (not (plist-get thread :empty-parent)))
 	 (jmail-view-thread object (jmail-search--objects-from-thread)

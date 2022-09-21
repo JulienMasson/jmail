@@ -32,40 +32,44 @@
   :type 'alist
   :group 'jmail)
 
+(defcustom jmail-actions-projects nil
+  "Alist of (name . path) projects"
+  :type 'alist
+  :group 'jmail)
+
 ;;; Actions
 
-(defun jmail-apply-patch (dir)
-  (interactive "DApply patch: ")
+(defun jmail-patch-prompt-dir (prompt)
+  (let* ((names (mapcar #'car jmail-actions-projects))
+         (collection (append names (list "interactive")))
+         (target (completing-read prompt collection)))
+    (if (string= target "interactive")
+        (read-directory-name prompt)
+      (assoc-default target jmail-actions-projects))))
+
+(defun jmail-apply-patch ()
+  (interactive)
   (with-jmail-search-buffer
-   (when-let* ((object (text-properties-at (point)))
+   (when-let* ((dir (jmail-patch-prompt-dir "Apply patch: "))
+               (object (text-properties-at (point)))
 	       (msg (plist-get object :path))
 	       (subject (plist-get object :subject))
-	       (default-directory dir)
-	       (tmp-patch (concat default-directory ".jmail.patch")))
+	       (default-directory dir))
      (when (string-match "^\\[.*PATCH" subject)
-       (if (not (tramp-tramp-file-p default-directory))
-	   (shell-command (concat "git am " msg))
-	 (copy-file msg tmp-patch t)
-	 (async-shell-command (concat "git am " (jmail-untramp-path tmp-patch)))
-	 (delete-file tmp-patch))))))
+       (magit-shell-command-topdir (concat "git am " msg))))))
 
-(defun jmail-apply-patch-series (dir)
-  (interactive "DApply patch series: ")
-  (jmail-search--foreach-line-thread
-      (when-let* ((object (text-properties-at (point)))
-		  (thread (plist-get object :thread))
-		  (level (plist-get thread :level))
-		  (msg (plist-get object :path))
-		  (subject (plist-get object :subject))
-		  (default-directory dir)
-		  (tmp-patch (concat default-directory ".jmail.patch")))
-	(when (and (string-match "^\\[PATCH " subject)
-		   (= level 1))
-	  (if (not (tramp-tramp-file-p default-directory))
-	      (shell-command (concat "git am " msg))
-	    (copy-file msg tmp-patch t)
-	    (shell-command (concat "git am " (jmail-untramp-path tmp-patch)))
-	    (delete-file tmp-patch))))))
+(defun jmail-apply-patch-series ()
+  (interactive)
+  (when-let ((dir (jmail-patch-prompt-dir "Apply patch series: ")))
+    (jmail-search--foreach-line-thread
+     (when-let* ((object (text-properties-at (point)))
+	         (thread (plist-get object :meta))
+	         (level (plist-get thread :level))
+	         (msg (plist-get object :path))
+	         (subject (plist-get object :subject))
+	         (default-directory dir))
+       (when (and (string-match "^\\[.*PATCH " subject) (= level 1))
+         (magit-shell-command-topdir (concat "git am " msg)))))))
 
 (defun jmail-open-patchwork-kernel ()
   (interactive)
@@ -81,8 +85,7 @@
 ;;; External Functions
 
 (defun jmail-actions-apply (action)
-  (interactive (list (completing-read "Apply action: "
-				      (mapcar #'car jmail-actions))))
+  (interactive (list (completing-read "Apply action: " (mapcar #'car jmail-actions))))
   (call-interactively (assoc-default action jmail-actions)))
 
 (provide 'jmail-actions)

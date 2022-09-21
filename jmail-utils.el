@@ -169,15 +169,15 @@
 	(car (read-from-string str))))))
 
 (defun jmail-get-account-infos ()
-  (let (from user)
+  (let (email user)
     (save-excursion
       (when (re-search-forward "^from[[:space:]]*" nil t)
-	(setq from (buffer-substring (point) (line-end-position)))))
+	(setq email (buffer-substring (point) (line-end-position)))))
     (save-excursion
       (when (re-search-forward "^user[[:space:]]*" nil t)
 	(setq user (buffer-substring (point) (line-end-position)))))
     (when user
-      (cons user from))))
+      (list :name user :email email))))
 
 (defun jmail-get-accounts (file)
   (let (accounts)
@@ -196,10 +196,9 @@
      (expand-file-name jmail-top-maildir))))
 
 (defun jmail-make-address-str (elem)
-  (let ((name (car elem))
-	(address (format "<%s>" (cdr elem))))
-    (if name
-	(format "%s %s" name address)
-      address)))
+  (when-let ((email (plist-get elem :email)))
+    (if-let ((name (plist-get elem :name)))
+	(format "%s <%s>" name email)
+      (format "<%s>" email))))
 
 (provide 'jmail-utils)
