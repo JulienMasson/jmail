@@ -94,12 +94,6 @@
 			 (line-end-position)
 			 'face face))))
 
-(defun jmail-view--insert-html (html)
-  (flet ((shr-fill-line () (jmail-view--fill-line)))
-    (let ((beg (point)))
-      (insert html)
-      (shr-render-region beg (point)))))
-
 (defun jmail-view--clean-text (plain-text)
   (with-temp-buffer
     (insert plain-text)
@@ -153,8 +147,14 @@
             (buffer-string))))
 
 (defun jmail-view--address-str (data field)
-  (when-let ((address (plist-get data field)))
-    (mapconcat #'jmail-make-address-str address ", ")))
+  (let (users)
+    (dolist (user (plist-get data field))
+      (when-let ((email (plist-get user :email)))
+        (if-let ((name (plist-get user :name)))
+            (push (format "%s <%s>" name email) users)
+          (push (format "<%s>" email) users))))
+    (when users
+      (string-join users ", "))))
 
 (defun jmail-view--date-str (data)
   (when-let ((date (plist-get data :date)))
@@ -184,8 +184,8 @@
     (append (list "all") (mapcar #'car attachments))))
 
 (defun jmail-view--attachments-str (data)
-  (when-let ((attachments (jmail-view--get-attachments data)))
-    (mapconcat #'car attachments ", ")))
+  (when-let ((attachments (plist-get data :attachments)))
+    (string-join attachments ", ")))
 
 (defun jmail-view--insert-contents (data)
   (let ((from (jmail-view--address-str data :from))
@@ -200,11 +200,11 @@
     (jmail-view--insert-headers from to cc mailing-list subject date attachments)
     (cond ((and html plain-text)
 	   (if jmail-view--html-view
-	       (jmail-view--insert-html html)
+	       (insert html)
 	     (jmail-view--insert-plain-text plain-text)))
 	  ((and html (not plain-text))
 	   (setq jmail-view--html-view t)
-	   (jmail-view--insert-html html))
+	   (insert html))
 	  ((and (not html) plain-text)
 	   (setq jmail-view--html-view nil)
            (jmail-view--insert-plain-text plain-text)))))
@@ -220,12 +220,58 @@
    (set-buffer-modified-p nil)
    (goto-char (point-min))))
 
+(defun jmail-view--get-body (parts object)
+  (dolist (part parts)
+    (let ((type (caadr part)))
+      (cond ((string= type "text/plain")
+             (plist-put object :body-txt (with-temp-buffer
+                                           (mm-inline-text part)
+                                           (buffer-string))))
+            ((string= type "text/html")
+             (plist-put object :body-html (with-temp-buffer
+                                            (mm-inline-text-html part)
+                                            (buffer-string))))))))
+
+(defun jmail-view--get-attachments (handle object)
+  (when-let* ((attachment (assoc-default "attachment" handle))
+              (file (assoc-default 'filename attachment)))
+    (let ((files (plist-get object :attachments)))
+      (add-to-list 'files file)
+      (plist-put object :attachments files))))
+
+(defun jmail-view--mm (handles object)
+  (when (and (stringp (car handles))
+             (not (string-match (car handles) "multipart/mixed")))
+    (setq handles (list handles)))
+  ;; body
+  (let* ((related (assoc-default "multipart/related" handles))
+         (parts (if related related handles)))
+    (when-let ((parts (assoc-default "multipart/alternative" parts)))
+      (jmail-view--get-body parts object)))
+  ;; attachments
+  (dolist (handle handles)
+    (when (and (consp handle) (bufferp (car handle)))
+      (jmail-view--get-attachments handle object))))
+
+(defun jmail-view--plain-text (object)
+  (message-goto-body)
+  (let ((body (buffer-substring (point) (point-max))))
+    (plist-put object :body-txt body)))
+
+(defun jmail-view--fill-object (object)
+  (with-temp-buffer
+    (insert-file-contents (plist-get object :path))
+    (if-let ((handles (mm-dissect-buffer nil t)))
+        (jmail-view--mm handles object)
+      (jmail-view--plain-text object))))
+
 (defun jmail-view--process-sentinel (process status)
   (when (eq (process-exit-status process) 0)
     (when-let* ((buffer (process-buffer process))
 		(object (jmail-extract-sexp-object buffer))
 		(handler (with-current-buffer buffer jmail-view--handler)))
       (kill-buffer buffer)
+      (jmail-view--fill-object object)
       (funcall handler object))))
 
 (defun jmail-view--get-mail-data (path handler)

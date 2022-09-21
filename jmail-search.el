@@ -198,7 +198,7 @@
     (plist-get object :path)))
 
 (defun jmail-search--thread (object)
-  (when-let ((thread (plist-get object :thread)))
+  (when-let ((thread (plist-get object :meta)))
     (let* ((level (plist-get thread :level))
 	   (last-child (plist-get thread :last-child))
 	   (spaces (make-string (* level 2) (string-to-char " ")))
@@ -219,11 +219,11 @@
 		'face 'font-lock-comment-face)))
 
 (defun jmail-search--from (object)
-  (if-let ((from (car (plist-get object :from))))
-      (if-let ((name (car from)))
-	  (propertize (truncate-string-to-width name jmail-search-from-width)
-		      'face 'font-lock-variable-name-face)
-	(propertize (truncate-string-to-width (cdr from) jmail-search-from-width)
+  (if-let* ((from (car (plist-get object :from)))
+            (email (plist-get from :email)))
+      (let* ((name (plist-get from :name))
+             (str (if name name email)))
+	(propertize (truncate-string-to-width str jmail-search-from-width)
 		    'face 'font-lock-variable-name-face))
     (propertize "unknown" 'face 'font-lock-variable-name-face)))
 
