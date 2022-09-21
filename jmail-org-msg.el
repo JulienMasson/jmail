@@ -24,7 +24,6 @@
 ;;; Code:
 
 (require 'jmail-compose)
-(require 'jmail-html)
 (require 'ox-html)
 (require 'org-msg)
 
@@ -122,12 +121,11 @@
 
 (defun jmail-org-msg-preview ()
   (interactive)
-  (let* ((dir (make-temp-file "org-msg-" t))
-	 (file (concat dir "/file.html"))
-         (contents (buffer-substring (org-msg-start) (org-msg-end)))
-	 (contents-html (org-msg-export-as-html contents)))
-    (with-temp-file file (insert contents-html))
-    (jmail-html-open file)))
+  (when-let* ((file (make-temp-file "org-msg-" nil ".html"))
+              (contents (buffer-substring (org-msg-start) (org-msg-end)))
+	      (html (org-msg-export-as-html contents)))
+    (with-temp-file file (insert html))
+    (browse-url file)))
 
 (defun jmail-org-msg-attach-dired-files ()
   "Attach marked dired files"
