@@ -37,6 +37,7 @@
     (define-key map "S" 'jmail-view-save-attachments)
     (define-key map "n" 'jmail-search-next)
     (define-key map "o" 'jmail-view-open-html)
+    (define-key map "O" 'jmail-view-open-raw)
     (define-key map "p" 'jmail-search-previous)
     (define-key map "q" 'jmail-view-quit)
     (define-key map "t" 'jmail-view-toggle-html)
@@ -452,6 +453,12 @@
 	(while (re-search-forward "cid:\\([[:graph:]]+\\)@[[:graph:]]+\"" nil t)
 	  (replace-match "\\1\""))))
     (browse-url file)))
+
+(defun jmail-view-open-raw ()
+  (interactive)
+  (when-let* ((data (jmail-view--data-at-point))
+	      (file (plist-get data :path)))
+    (find-file file)))
 
 (defun jmail-view-quit ()
   (interactive)
