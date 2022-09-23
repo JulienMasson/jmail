@@ -78,7 +78,7 @@
       (jmail-capf-setup)
       (jmail-compose-setup-send-mail)
       (jmail-compose-set-extra-arguments account from-email)
-      (message-goto-to)
+      (message-goto-body)
       (jmail-switch-to-buffer (current-buffer)))))
 
 (provide 'jmail-compose)
