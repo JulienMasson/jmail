@@ -62,11 +62,10 @@
   (setq-local sendmail-program (jmail-find-program "msmtp")))
 
 (defun jmail-compose (account)
-  (interactive (list (completing-read "Compose with: "
-				      (jmail-compose--account-list))))
+  (interactive (list (completing-read "Compose with: " (jmail-compose--account-list))))
   (let* ((accounts (jmail-get-accounts jmail-smtp-config-file))
 	 (from (assoc-default account accounts))
-	 (from-email (cdr from))
+	 (from-email (plist-get from :email))
 	 (buffer (message-buffer-name "mail")))
     (with-current-buffer (get-buffer-create buffer)
       (message-setup `((From . ,(jmail-make-address-str from))
