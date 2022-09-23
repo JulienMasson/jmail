@@ -46,6 +46,18 @@
 
 ;;; External Functions
 
+(defun jmail-set-account (account)
+  (interactive (list (completing-read "Use account: " (jmail-compose--account-list))))
+  (let* ((accounts (jmail-get-accounts jmail-smtp-config-file))
+	 (from (assoc-default account accounts))
+	 (from-email (plist-get from :email)))
+    (save-excursion
+      (message-goto-from)
+      (message-beginning-of-line)
+      (delete-region (point) (line-end-position))
+      (insert (jmail-make-address-str from))
+      (jmail-compose-set-extra-arguments account from-email))))
+
 (defun jmail-compose-attach-dired-files ()
   (interactive)
   (mapc #'mml-attach-file (dired-get-all-marked)))
