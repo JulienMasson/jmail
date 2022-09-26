@@ -149,11 +149,18 @@
     (when users
       (string-join (delete-dups users) ", "))))
 
+(defun jmail-view--attachment-name (handle)
+  (cond ((assoc "attachment" handle)
+         (when-let ((attach (assoc-default "attachment" handle)))
+           (assoc-default 'filename attach)))
+        ((assoc "application/pdf" handle)
+         (when-let ((pdf (assoc-default "application/pdf" handle)))
+           (assoc-default 'name pdf)))))
+
 (defun jmail-view--add-attachments (handles html-view)
   (let ((outdir (temporary-file-directory)))
     (dolist (handle handles)
-      (when-let* ((attach (assoc-default "attachment" handle))
-                  (name (assoc-default 'filename attach))
+      (when-let* ((name (jmail-view--attachment-name handle))
                   (file (concat outdir name)))
         (mm-save-part-to-file handle file)
         (if (and html-view (bound-and-true-p org-msg-mode))
@@ -162,9 +169,7 @@
 
 (defun jmail-view--attachments (data)
   (when-let* ((handles (plist-get data :attachments)))
-    (mapcar (lambda (handle)
-              (when-let ((attach (assoc-default "attachment" handle)))
-                (assoc-default 'filename attach)))
+    (mapcar (lambda (handle) (jmail-view--attachment-name handle))
             handles)))
 
 (defun jmail-view--attachments-str (data)
@@ -230,6 +235,8 @@
             ((assoc "text/html" handles)
              (plist-put object :mm-html handles))
             ((assoc "attachment" handles)
+             (jmail-view--add-attachment object handles))
+            ((assoc "application/pdf" handles)
              (jmail-view--add-attachment object handles))
             ((assoc "image/png" handles)
              (jmail-view--add-image object handles))))))
@@ -409,8 +416,7 @@
 
 (defun jmail-view--find-attachment (handles name)
   (cl-find-if (lambda (handle)
-                (when-let ((attach (assoc-default "attachment" handle)))
-                  (string= (assoc-default 'filename attach) name)))
+                (string= (jmail-view--attachment-name handle) name))
               handles))
 
 (defun jmail-view-save-attachments ()
