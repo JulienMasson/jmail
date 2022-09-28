@@ -580,7 +580,7 @@
 	 ,@body
 	 (forward-line)
 	 (while (and (jmail-search--thread-level-at-point)
-		     (not (jmail-search--thread-empty-parent-at-point))
+		     (not (jmail-search--thread-orphan-at-point))
 		     (not (zerop (jmail-search--thread-level-at-point)))
 		     (not (eobp)))
 	   ,@body
@@ -610,10 +610,10 @@
 	     (forward-line)))
 	  (list init-start (line-beginning-position)))))))
 
-(defun jmail-search--thread-empty-parent-at-point ()
+(defun jmail-search--thread-orphan-at-point ()
   (when-let* ((object (text-properties-at (point)))
 	      (thread (plist-get object :meta)))
-       (plist-get thread :empty-parent)))
+       (plist-get thread :orphan)))
 
 (defun jmail-search--thread-range ()
   (when-let ((root-level (jmail-search--thread-level-at-point)))
@@ -623,7 +623,7 @@
 	(forward-line)
 	(while (and (jmail-search--thread-level-at-point)
 		    (> (jmail-search--thread-level-at-point) root-level)
-		    (not (jmail-search--thread-empty-parent-at-point))
+		    (not (jmail-search--thread-orphan-at-point))
 		    (not (eobp)))
 	  (setq end (line-end-position))
 	  (forward-line)))
@@ -687,14 +687,14 @@
 (defun jmail-search--fold-current-thread (object)
   (when-let ((thread (plist-get object :meta)))
     (let ((level (plist-get thread :level))
-	  (empty-parent (plist-get thread :empty-parent))
+	  (orphan (plist-get thread :orphan))
 	  (start (plist-get object :subject-start))
 	  (end (line-end-position)))
       (goto-char start)
       (if (zerop level)
 	  (when (plist-get thread :has-child)
 	    (jmail-search--add-fold-overlay start end))
-	(unless empty-parent
+	(unless orphan
 	  (previous-line)
 	  (move-beginning-of-line 1)
 	  (when-let* ((root-start (jmail-search--subject-start))
@@ -980,7 +980,7 @@
    (let* ((object (text-properties-at (point)))
 	  (thread (plist-get object :meta)))
      (if (and jmail-view-thread-default-view thread
-	      (not (plist-get thread :empty-parent)))
+	      (not (plist-get thread :orphan)))
 	 (jmail-view-thread object (jmail-search--objects-from-thread)
 			    (current-buffer))
        (jmail-search--mark-as-read)
