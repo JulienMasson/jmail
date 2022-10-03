@@ -252,7 +252,7 @@
 						      :jmail-view-header (point-min)
 						      :jmail-view-end (point-max)))
    (set-buffer-modified-p nil)
-   (goto-char (point-min))))
+   (message-goto-body)))
 
 (defun jmail-view--add-attachment (object handle)
   (let ((handles (plist-get object :attachments)))
