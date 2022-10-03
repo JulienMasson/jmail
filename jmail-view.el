@@ -24,6 +24,7 @@
 ;;; Code:
 
 (require 'goto-addr)
+(require 'magit-diff)
 (require 'message)
 (require 'jmail-compose)
 (require 'jmail-font-lock)
@@ -97,10 +98,46 @@
 	    (replace-match (cadr action))))))
     (buffer-string)))
 
+(defun jmail-view--beg-diffstat ()
+  (save-excursion
+    (when (re-search-forward magit-diff-statline-re nil t)
+      (goto-char (line-beginning-position))
+      (while (looking-at magit-diff-statline-re)
+        (forward-line -1))
+      (forward-line)
+      (point))))
+
+(defun jmail-view--wash-diffstat ()
+  (when-let ((beg (jmail-view--beg-diffstat)))
+    (let (heading)
+      (when (re-search-forward "^ ?\\([0-9]+ +files? change[^\n]*\n\\)" nil t)
+        (setq heading (match-string 1))
+        (magit-delete-match)
+        (goto-char beg)
+        (insert (propertize heading 'font-lock-face 'magit-diff-file-heading))
+        (while (looking-at magit-diff-statline-re)
+          (magit-bind-match-strings (file sep cnt add del) nil
+            (magit-delete-line)
+            (when (string-match " +$" file)
+              (setq sep (concat (match-string 0 file) sep))
+              (setq file (substring file 0 (match-beginning 0))))
+            (let ((le (length file)) ld)
+              (setq file (magit-decode-git-path file))
+              (setq ld (length file))
+              (when (> le ld)
+                (setq sep (concat (make-string (- le ld) ?\s) sep))))
+            (insert (propertize file 'font-lock-face 'magit-filename) sep cnt " ")
+            (when add
+              (insert (propertize add 'font-lock-face 'magit-diffstat-added)))
+            (when del
+              (insert (propertize del 'font-lock-face 'magit-diffstat-removed)))
+            (insert "\n")))))))
+
 (defun jmail-view--diff ()
-  (when (re-search-forward "^diff \-\-git" nil t)
-    (setq-local font-lock-defaults diff-font-lock-defaults)
-    (org-font-lock-ensure)))
+  (jmail-view--wash-diffstat)
+  (when (re-search-forward magit-diff-headline-re nil t)
+    (goto-char (line-beginning-position))
+    (magit-wash-sequence (apply-partially #'magit-diff-wash-diff nil))))
 
 (defun jmail-view--cited ()
   (let ((regexp (concat "^\\(" message-cite-prefix-regexp "\\).*")))
@@ -114,7 +151,7 @@
                 (dolist (func (list #'jmail-view--diff
                                     #'jmail-view--cited))
                   (save-excursion
-                    (goto-char (point-min))
+                    (message-goto-body)
                     (funcall func)))
                 (buffer-string))))
     (insert "\n" text "\n")))
