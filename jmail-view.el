@@ -99,7 +99,7 @@
 
 (defun jmail-view--diff ()
   (when (re-search-forward "^diff \-\-git" nil t)
-    (diff-mode)
+    (setq-local font-lock-defaults diff-font-lock-defaults)
     (org-font-lock-ensure)))
 
 (defun jmail-view--cited ()
