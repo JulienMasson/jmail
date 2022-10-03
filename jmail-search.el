@@ -73,7 +73,6 @@
   (setq-local hl-line-face 'jmail-search-hl-line)
   (setq truncate-lines t)
   (add-hook 'window-scroll-functions #'jmail-search--after-scroll nil t)
-  (add-hook 'isearch-mode-hook #'jmail-search-display-all nil t)
   (setq buffer-read-only t))
 
 ;;; Faces
