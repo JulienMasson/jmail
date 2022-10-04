@@ -42,8 +42,8 @@
     (define-key map "p" 'jmail-search-previous)
     (define-key map "q" 'jmail-view-quit)
     (define-key map "t" 'jmail-view-toggle-html)
-    (define-key map (kbd "M-n") 'jmail-view-next-comment)
-    (define-key map (kbd "M-p") 'jmail-view-previous-comment)
+    (define-key map (kbd "M-n") 'forward-paragraph)
+    (define-key map (kbd "M-p") 'backward-paragraph)
     map)
   "Keymap for `jmail-view-mode'")
 
@@ -384,24 +384,6 @@
     (string-join (delete-dups users) ", ")))
 
 ;;; External Functions
-
-(defun jmail-view-next-comment ()
-  (interactive)
-  (let (pos)
-    (save-excursion
-      (goto-char (line-end-position))
-      (when (re-search-forward "^[^>[:space:]]" nil t)
-        (setq pos (line-beginning-position))))
-    (when pos (goto-char pos))))
-
-(defun jmail-view-previous-comment ()
-  (interactive)
-  (let (pos)
-    (save-excursion
-      (goto-char (line-beginning-position))
-      (when (re-search-backward "^[^>[:space:]]" nil t)
-        (setq pos (line-beginning-position))))
-    (when pos (goto-char pos))))
 
 (defun jmail-view-eoh-mail-point ()
   (let* ((props (text-properties-at (point)))
