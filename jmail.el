@@ -26,7 +26,6 @@
 (require 'subr-x)
 (require 'jmail-compose)
 (require 'jmail-count)
-(require 'jmail-nntp)
 (require 'jmail-org-msg)
 (require 'jmail-rss)
 (require 'jmail-search)
@@ -69,7 +68,6 @@
     (define-key map [up]     'jmail-previous-query)
 
     (define-key map "R"      'jmail-rss-fetch-refresh-now)
-    (define-key map "N"      'jmail-nntp)
     map)
   "Keymap for `jmail-mode'")
 
