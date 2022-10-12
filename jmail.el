@@ -52,6 +52,7 @@
 
     (define-key map "f"      'jmail-fetch-refresh-at-point)
     (define-key map "F"      'jmail-fetch-refresh-all)
+    (define-key map "C"      'jmail-cancel-fetch-refresh)
 
     (define-key map "u"      'jmail-unread-at-point)
     (define-key map "U"      'jmail-unread-all)
@@ -430,6 +431,12 @@
   (if (and jmail-fetch-refresh-every (not skip-sync))
       (jmail--restart-fetch-refresh-timer)
     (jmail--start-fetch-refresh skip-sync)))
+
+(defun jmail-cancel-fetch-refresh ()
+  (interactive)
+  (jmail-update-quit)
+  (jmail-count-quit)
+  (jmail--update-header-line jmail--default-header))
 
 (defun jmail-unread-at-point ()
   (interactive)
