@@ -56,7 +56,7 @@
 	       (subject (plist-get object :subject))
 	       (default-directory dir))
      (when (string-match "^\\[.*PATCH" subject)
-       (magit-shell-command-topdir (concat "git am " msg))))))
+       (shell-command (concat "git am " msg))))))
 
 (defun jmail-apply-patch-series ()
   (interactive)
@@ -69,7 +69,7 @@
 	         (subject (plist-get object :subject))
 	         (default-directory dir))
        (when (and (string-match "^\\[.*PATCH " subject) (= level 1))
-         (magit-shell-command-topdir (concat "git am " msg)))))))
+         (shell-command (concat "git am " msg)))))))
 
 (defun jmail-open-patchwork-kernel ()
   (interactive)
