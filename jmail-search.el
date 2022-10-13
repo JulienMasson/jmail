@@ -548,6 +548,7 @@
        (plist-get thread :level))))
 
 (defun jmail-search--goto-root-thread ()
+  (goto-char (line-beginning-position))
   (when-let* ((object (text-properties-at (point)))
 	      (thread (plist-get object :meta))
 	      (level (plist-get thread :level)))
@@ -555,59 +556,42 @@
       (previous-line)
       (jmail-search--goto-root-thread))))
 
-(defmacro save-fold-overlays (&rest body)
-  `(lexical-let ((start (line-beginning-position)))
-     ,@body
-     (lexical-let* ((end (line-end-position))
-		    (overlays (cl-remove-if (lambda (ov)
-					      (and (<= (overlay-start ov) start)
-						   (>= (overlay-end ov) end)))
-					    jmail-search--fold-overlays)))
-       (dolist (ov overlays)
-	 (lexical-let ((start (overlay-start ov))
-		       (end (overlay-end ov)))
-	   (jmail-search--remove-fold-overlay ov)
-	   (jmail-search--add-fold-overlay start end))))))
-
 (defmacro jmail-search--foreach-line-thread (&rest body)
   `(with-jmail-search-buffer
     (save-excursion
-      (lexical-let (start end)
-	(jmail-search--goto-root-thread)
-	(save-fold-overlays
-	 (setq start (line-beginning-position))
-	 ,@body
-	 (forward-line)
-	 (while (and (jmail-search--thread-level-at-point)
-		     (not (jmail-search--thread-orphan-at-point))
-		     (not (zerop (jmail-search--thread-level-at-point)))
-		     (not (eobp)))
-	   ,@body
-	   (forward-line)))
-	(setq end (line-beginning-position))
-	(list start end)))))
+      (jmail-search--goto-root-thread)
+      (pcase-let ((`(,start ,end) (jmail-search--thread-range)))
+        (when (and start end)
+          (goto-char start)
+          (while (and (jmail-search--thread-level-at-point)
+                      (< (point) end)
+		      (not (jmail-search--thread-orphan-at-point))
+		      (not (eobp)))
+	    ,@body
+	    (forward-line)))))))
+
+(defun jmail-search--region-range ()
+  (if (region-active-p)
+    (let* ((beg-region (region-beginning))
+	   (beg (save-excursion
+		  (goto-char beg-region)
+		  (line-beginning-position)))
+	   (end-region (region-end))
+	   (end (save-excursion
+		  (goto-char end-region)
+		  (line-end-position))))
+      (list beg end))
+    (list (line-beginning-position) (line-end-position))))
 
 (defmacro jmail-search--foreach-line-region (&rest body)
   `(with-jmail-search-buffer
     (save-excursion
-      (when (region-active-p)
-	(lexical-let* ((beg-region (region-beginning))
-		       (beg (save-excursion
-			      (goto-char beg-region)
-			      (line-beginning-position)))
-		       (end-region (region-end))
-		       (end (save-excursion
-			      (goto-char end-region)
-			      (line-end-position)))
-		       init-start)
-	  (deactivate-mark)
-	  (goto-char beg)
-	  (save-fold-overlays
-	   (setq init-start (point))
-	   (while (and (<= (point) end) (not (eobp)))
-	     ,@body
-	     (forward-line)))
-	  (list init-start (line-beginning-position)))))))
+      (pcase-let ((`(,start ,end) (jmail-search--region-range)))
+        (when (and start end)
+          (goto-char start)
+          (while (and (< (point) end) (not (eobp)))
+	    ,@body
+	    (forward-line)))))))
 
 (defun jmail-search--thread-orphan-at-point ()
   (when-let* ((object (text-properties-at (point)))
@@ -616,7 +600,7 @@
 
 (defun jmail-search--thread-range ()
   (when-let ((root-level (jmail-search--thread-level-at-point)))
-    (let* ((start (jmail-search--subject-start))
+    (let* ((start (line-beginning-position))
 	   (end start))
       (save-excursion
 	(forward-line)
@@ -710,10 +694,10 @@
 
 (defun jmail-search--remove-overlay-range (start end)
   (save-excursion
-    (goto-char end)
-    (while (> (point) start)
+    (goto-char start)
+    (while (< (point) end)
       (jmail-search--remove-overlay)
-      (previous-line))))
+      (forward-line))))
 
 (defun jmail-search--delete-region (start end)
   (with-jmail-search-buffer
@@ -724,9 +708,8 @@
 			       (+ (line-end-position) 1)))
 
 (defun jmail-search--delete-message ()
-  (with-jmail-search-buffer
-   (when-let ((path (jmail-search--path)))
-     (delete-file path))))
+  (when-let ((path (jmail-search--path)))
+    (delete-file path)))
 
 (defun jmail-search--read-uidvalidity (dir)
   (when-let* ((default-directory dir)
@@ -777,23 +760,24 @@
 				      "Delete all messages from region: "
 				    "Delete message: "))))
   (when confirm
-    (if (region-active-p)
-	(let ((range (jmail-search--foreach-line-region
-		      (jmail-search--delete-message))))
-	  (apply #'jmail-search--remove-overlay-range range)
-	  (apply #'jmail-search--delete-region range))
-      (jmail-search--delete-message)
-      (jmail-search--remove-overlay)
-      (jmail-search--delete-line))
-    (jmail-fetch-refresh-all t)))
+    (let ((range (jmail-search--region-range)))
+      (jmail-search--foreach-line-region (jmail-search--delete-message))
+      (apply #'jmail-search--remove-overlay-range range)
+      (apply #'jmail-search--delete-region range)
+      ;; delete empty line
+      (jmail-search--delete-region (point) (1+ (point)))
+      (jmail-fetch-refresh-all t))))
 
 (defun jmail-search-delete-thread (confirm)
   (interactive (list (yes-or-no-p "Delete whole thread: ")))
   (when confirm
-    (let ((range (jmail-search--foreach-line-thread
-		  (jmail-search--delete-message))))
+    (jmail-search--goto-root-thread)
+    (when-let ((range (jmail-search--thread-range)))
+      (jmail-search--foreach-line-thread (jmail-search--delete-message))
       (apply #'jmail-search--remove-overlay-range range)
       (apply #'jmail-search--delete-region range)
+      ;; delete empty line
+      (jmail-search--delete-region (point) (1+ (point)))
       (jmail-fetch-refresh-all t))))
 
 (defun jmail-search-mark-at-point-or-region (flag)
@@ -801,18 +785,18 @@
 					  "Mark on region as: "
 					"Mark at point as: ")
 				      (mapcar #'car jmail-search-mark-flags))))
-  (if (region-active-p)
-      (jmail-search--foreach-line-region
-       (funcall (assoc-default flag jmail-search-mark-flags)))
-    (funcall (assoc-default flag jmail-search-mark-flags))
-    (jmail-search--update-fold-overlay))
-  (jmail-fetch-refresh-all t))
+  (let ((flag-func (assoc-default flag jmail-search-mark-flags)))
+    (jmail-search--foreach-line-region
+     (funcall flag-func)
+     (jmail-search--update-fold-overlay))
+    (jmail-fetch-refresh-all t)))
 
 (defun jmail-search-mark-thread (flag)
   (interactive (list (completing-read "Mark whole thread as: "
 				      (mapcar #'car jmail-search-mark-flags))))
   (jmail-search--foreach-line-thread
    (funcall (assoc-default flag jmail-search-mark-flags)))
+  (jmail-search--update-fold-overlay)
   (jmail-fetch-refresh-all t))
 
 (defun jmail-search-move-at-point-or-region (maildir)
@@ -820,10 +804,8 @@
 					  "Move region to: "
 					"Move to: ")
 				      (jmail-maildirs (jmail-get-top-maildir)))))
-  (if (region-active-p)
-      (jmail-search--foreach-line-region
-       (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-    (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
+  (jmail-search--foreach-line-region
+   (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
   (jmail-fetch-refresh-all t))
 
 (defun jmail-search-move-thread (maildir)
@@ -879,11 +861,12 @@
 
 (defun jmail-search-fold-unfold-thread ()
   (interactive)
-  (pcase-let ((`(,start ,end) (jmail-search--thread-range)))
-    (when (and start end)
-      (if-let ((overlay (jmail-search--find-fold-overlay start end)))
-	  (jmail-search--remove-fold-overlay overlay)
-	(jmail-search--add-fold-overlay start end)))))
+  (pcase-let ((`(,_ ,end) (jmail-search--thread-range)))
+    (let ((start (jmail-search--subject-start)))
+      (when (and start end)
+        (if-let ((overlay (jmail-search--find-fold-overlay start end)))
+	    (jmail-search--remove-fold-overlay overlay)
+	  (jmail-search--add-fold-overlay start end))))))
 
 (defun jmail-search-fold-unfold-all-thread ()
   (interactive)
