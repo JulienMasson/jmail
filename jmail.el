@@ -487,15 +487,18 @@
 		  (plist-get props :auto-fold-thread)
 		  (plist-get props :related))))
 
+(defun jmail-display-queries ()
+  (unless (get-buffer jmail--buffer-name)
+    (jmail--setup))
+  (jmail-switch-to-buffer jmail--buffer-name))
+
 (defun jmail ()
   (interactive)
-  (jmail--check-env)
   (let ((default-directory jmail-top-maildir))
+    (jmail--check-env)
     (jmail--check-programs)
     (jmail-index-check)
-    (unless (get-buffer jmail--buffer-name)
-      (jmail--setup))
-    (jmail-refresh-all)
-    (jmail-switch-to-buffer jmail--buffer-name)))
+    (jmail-display-queries)
+    (jmail-refresh-all)))
 
 (provide 'jmail)

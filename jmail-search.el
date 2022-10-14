@@ -62,7 +62,7 @@
     (define-key map [return] 'jmail-search-enter)
     (define-key map (kbd "<C-return>") 'jmail-search-show-this-thread)
 
-    (define-key map "q" 'jmail-search-quit)
+    (define-key map "q" 'jmail-search-back-queries)
 
     map)
   "Keymap for `jmail-search-mode'")
@@ -995,8 +995,12 @@
   (jmail-search--stop-process)
   (jmail-view-quit)
   (jmail-search--delete-all-overlays)
-  (with-jmail-search-buffer (kill-buffer))
-  (jmail))
+  (with-jmail-search-buffer (kill-buffer)))
+
+(defun jmail-search-back-queries ()
+  (interactive)
+  (jmail-search-quit)
+  (jmail-display-queries))
 
 (defun jmail-search (query thread auto-fold-thread related)
   (setq jmail-search--saved-index 0)
