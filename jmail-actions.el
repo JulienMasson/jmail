@@ -84,7 +84,8 @@
          (remove (concat "rm " mbox))
          (cmds (list fetch extract convert remove)))
     (shell-command (string-join cmds " && "))
-    (message (concat "mbox saved to " (propertize maildir 'face 'success)))))
+    (message (concat "mbox saved to " (propertize maildir 'face 'success)))
+    (jmail-refresh-all)))
 
 ;;; External Functions
 
