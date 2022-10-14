@@ -3,7 +3,7 @@
 ;; Copyright (C) 2020 Julien Masson.
 
 ;; Author: Julien Masson
-;; URL: https://github.com/JulienMasson/jm-config
+;; URL: https://github.com/JulienMasson/jmail
 ;; Created: 2019-07-12
 
 ;;; License
