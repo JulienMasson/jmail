@@ -39,16 +39,6 @@
 
 ;;; External Functions
 
-(defmacro bind-match-strings (varlist string &rest body)
-  (declare (indent 2) (debug (listp form body)))
-  (let ((s (cl-gensym "string"))
-        (i 0))
-    `(let ((,s ,string))
-       (let ,(save-match-data
-	       (mapcar (lambda (it) (list it (list 'match-string (cl-incf i) s)))
-		       varlist))
-         ,@body))))
-
 (defun jmail-abort (msg)
   (error (substring-no-properties msg)))
 

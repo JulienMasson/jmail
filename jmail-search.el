@@ -319,7 +319,7 @@
   (let ((pattern "\\(.+\\)\\(?:cur\\|new\\|tmp\\)/\\(.+U=[0-9]+:2,\\).*")
 	(new-path old-path))
     (when (string-match pattern old-path)
-      (bind-match-strings (dir file) old-path
+      (magit-bind-match-strings (dir file) old-path
 	(setq new-path (concat dir (if (member 'new flags) "new/" "cur/") file))
 	(when (member 'flagged flags)
 	  (setq new-path (concat new-path "F")))
