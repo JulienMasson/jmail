@@ -778,7 +778,7 @@
       (apply #'jmail-search--delete-region range)
       ;; delete empty line
       (jmail-search--delete-region (point) (1+ (point)))
-      (jmail-sync-refresh-all))))
+      (jmail-refresh-all))))
 
 (defun jmail-search-delete-thread (confirm)
   (interactive (list (yes-or-no-p "Delete whole thread: ")))
@@ -790,7 +790,7 @@
       (apply #'jmail-search--delete-region range)
       ;; delete empty line
       (jmail-search--delete-region (point) (1+ (point)))
-      (jmail-sync-refresh-all))))
+      (jmail-refresh-all))))
 
 (defun jmail-search-mark-at-point-or-region (flag)
   (interactive (list (completing-read (if (region-active-p)
@@ -801,7 +801,7 @@
     (jmail-search--foreach-line-region
      (funcall flag-func)
      (jmail-search--update-fold-overlay))
-    (jmail-sync-refresh-all)))
+    (jmail-refresh-all)))
 
 (defun jmail-search-mark-thread (flag)
   (interactive (list (completing-read "Mark whole thread as: "
@@ -809,7 +809,7 @@
   (jmail-search--foreach-line-thread
    (funcall (assoc-default flag jmail-search-mark-flags)))
   (jmail-search--update-fold-overlay)
-  (jmail-sync-refresh-all))
+  (jmail-refresh-all))
 
 (defun jmail-search-move-at-point-or-region (maildir)
   (interactive (list (completing-read (if (region-active-p)
@@ -818,14 +818,14 @@
 				      (jmail-maildirs (jmail-get-top-maildir)))))
   (jmail-search--foreach-line-region
    (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-  (jmail-sync-refresh-all))
+  (jmail-refresh-all))
 
 (defun jmail-search-move-thread (maildir)
   (interactive (list (completing-read "Move whole thread to: "
 				      (jmail-maildirs (jmail-get-top-maildir)))))
   (jmail-search--foreach-line-thread
    (jmail-search--move-message (concat (jmail-get-top-maildir) maildir)))
-  (jmail-sync-refresh-all))
+  (jmail-refresh-all))
 
 (defun jmail-search-toggle-thread ()
   (let ((query (plist-get jmail-search--current :query))
