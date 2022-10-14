@@ -59,7 +59,7 @@
 ;;; External Functions
 
 (defun jmail-index-quit ()
-  (jmail-terminate-process-buffer jmail-sync--buffer))
+  (jmail-terminate-process-buffer jmail-index--buffer))
 
 (defun jmail-index-check ()
   (unless jmail-index-checked
