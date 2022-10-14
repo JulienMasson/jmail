@@ -26,7 +26,8 @@
 ;;; Customization
 
 (defcustom jmail-actions '(("patch"        . jmail-apply-patch)
-			   ("patch-series" . jmail-apply-patch-series))
+			   ("patch-series" . jmail-apply-patch-series)
+                           ("fetch-mbox"   . jmail-fetch-mbox))
   "Alist of actions to apply in `jmail-search-mode'"
   :type 'alist
   :group 'jmail)
@@ -69,6 +70,21 @@
 	         (default-directory dir))
        (when (and (string-match "^\\[.*PATCH " subject) (= level 1))
          (shell-command (concat "git am " msg)))))))
+
+(defun jmail-fetch-mbox (message-id)
+  (interactive "sFetch message-id: ")
+  (let* ((default-directory (temporary-file-directory))
+         (maildir (completing-read "Save to: " (jmail--maildir-name-list)))
+         (mbox "jmail.mbox")
+         (url (format "https://lore.kernel.org/all/%s/t.mbox.gz" message-id))
+         (fetch (format "wget -q %s -O %s.gz" url mbox))
+         (extract (format "gunzip -q %s.gz" mbox))
+         (convert (format "mb2md -s %s -d %s/%s" (concat default-directory mbox)
+                          (expand-file-name jmail-top-maildir) maildir))
+         (remove (concat "rm " mbox))
+         (cmds (list fetch extract convert remove)))
+    (shell-command (string-join cmds " && "))
+    (message (concat "mbox saved to " (propertize maildir 'face 'success)))))
 
 ;;; External Functions
 
