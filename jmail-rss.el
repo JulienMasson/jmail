@@ -139,13 +139,13 @@
   (jmail-rss--stop-fetch-refresh-timer))
 
 (defun jmail-rss-setup ()
-  (when (and jmail-rss-fetch-refresh-every (jmail-find-program jmail-rss-program))
+  (when (and jmail-rss-fetch-refresh-every (executable-find jmail-rss-program))
     (jmail-rss--restart-fetch-refresh-timer)))
 
 (defun jmail-rss-fetch-refresh ()
   (unless (get-buffer-process jmail-rss--buffer-name)
     (let* ((default-directory jmail-top-maildir)
-	   (program (jmail-find-program jmail-rss-program))
+	   (program (executable-find jmail-rss-program))
 	   (args (jmail-rss--get-args "fetch"))
 	   (buffer (get-buffer-create jmail-rss--buffer-name))
 	   (process (apply 'start-file-process jmail-rss-process-name

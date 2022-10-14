@@ -23,8 +23,6 @@
 
 ;;; Code:
 
-(require 'tramp)
-
 ;;; Customization
 
 (defcustom jmail-split-window-size 20
@@ -50,17 +48,6 @@
 	       (mapcar (lambda (it) (list it (list 'match-string (cl-incf i) s)))
 		       varlist))
          ,@body))))
-
-(defun jmail-untramp-path (path)
-  (if (tramp-tramp-file-p path)
-      (tramp-file-name-localname (tramp-dissect-file-name path))
-    path))
-
-(defun jmail-common-host (path1 path2)
-  (cl-flet ((get-host (path)
-	     (when (tramp-tramp-file-p path)
-	       (tramp-file-name-host (tramp-dissect-file-name path)))))
-    (eq (get-host path1) (get-host path2))))
 
 (defun jmail-abort (msg)
   (error (substring-no-properties msg)))
@@ -98,16 +85,6 @@
 (defun jmail-unbold-region (beg end)
   (remove-text-properties beg end (list 'face 'bold)))
 
-(defun jmail-tramp-executable-find (program-name)
-  (with-parsed-tramp-file-name default-directory nil
-    (let ((buffer (tramp-get-connection-buffer v))
-	  (cmd (concat "which " program-name)))
-      (with-current-buffer buffer
-	(tramp-send-command v cmd)
-	(goto-char (point-min))
-	(when (looking-at "^\\(.+\\)")
-	  (match-string 1))))))
-
 (defun jmail-read-prompt (prompt completions &optional initial-contents)
   (let* ((func (lambda (string)
 		 (if (string-match "\\(^\\|.* (?\\)\\([^ ]*\\)$" string)
@@ -120,11 +97,6 @@
 	 (keymap (copy-keymap minibuffer-local-map)))
     (define-key keymap (kbd "TAB") 'minibuffer-complete)
     (read-from-minibuffer prompt initial-contents keymap)))
-
-(defun jmail-find-program (program-name)
-  (if (tramp-tramp-file-p default-directory)
-      (jmail-tramp-executable-find program-name)
-    (executable-find program-name)))
 
 (defun jmail-maildirs (top)
   (when (file-exists-p top)

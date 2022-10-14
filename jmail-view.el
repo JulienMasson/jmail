@@ -296,7 +296,7 @@
 
 (defun jmail-view--get-mail-data (path handler)
   (when-let* ((default-directory jmail-top-maildir)
-	      (program (jmail-find-program jmail-index-program))
+	      (program (executable-find jmail-index-program))
 	      (args (list "view" "--nocolor" "--format=sexp" path))
 	      (buffer (get-buffer-create "*jmail-view-process*"))
 	      (process (apply 'start-file-process "jmail-view" buffer

@@ -309,21 +309,18 @@
     maildir))
 
 (defun jmail--check-programs ()
-  (unless (jmail-find-program jmail-index-program)
+  (unless (executable-find jmail-index-program)
     (jmail-abort (concat "Please install " jmail-index-program)))
-  (unless (jmail-find-program jmail-sync-program)
+  (unless (executable-find jmail-sync-program)
     (jmail-abort (concat "Please install " jmail-sync-program))))
 
 (defun jmail--check-env ()
   (unless jmail-top-maildir
     (jmail-abort "Please set `jmail-top-maildir'"))
-  (when jmail-sync-config-file
-    (unless (jmail-common-host jmail-top-maildir jmail-sync-config-file)
-      (jmail-abort "`jmail-top-maildir' and `jmail-sync-config-file' doesn't have common host")))
+  (unless jmail-sync-config-file
+    (jmail-abort "Please set `jmail-sync-config-file'"))
   (unless jmail-smtp-config-file
-    (jmail-abort "Please set `jmail-smtp-config-file'"))
-  )
-  ;; (jmail-update-check-database))
+    (jmail-abort "Please set `jmail-smtp-config-file'")))
 
 ;;; External Functions
 

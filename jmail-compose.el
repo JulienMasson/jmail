@@ -71,7 +71,7 @@
 (defun jmail-compose-setup-send-mail ()
   (setq-local send-mail-function 'message-send-mail-with-sendmail)
   (setq-local message-send-mail-function 'message-send-mail-with-sendmail)
-  (setq-local sendmail-program (jmail-find-program "msmtp")))
+  (setq-local sendmail-program (executable-find "msmtp")))
 
 (defun jmail-compose (account)
   (interactive (list (completing-read "Compose with: " (jmail-compose--account-list))))

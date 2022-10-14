@@ -35,7 +35,7 @@
 
 (defun jmail-count--program (query)
   (format "%s find --fields p %s | wc -l"
-	  (jmail-find-program jmail-index-program)
+	  (executable-find jmail-index-program)
 	  (shell-quote-argument query)))
 
 (defun jmail-count--call-cb (count)
