@@ -262,7 +262,7 @@
   (when (cl-intersection flags (list 'unread 'flagged 'attach))
     (let* ((flags-list (jmail-search--flags-render flags))
 	   (flags-str (concat " " (string-join flags-list " ")))
-	   (overlay (make-overlay start (+ start 1))))
+	   (overlay (make-overlay start start)))
       (overlay-put overlay 'invisible t)
       (overlay-put overlay 'before-string flags-str)
       (add-to-list 'jmail-search--flags-overlays overlay))))
