@@ -140,6 +140,21 @@
   :type 'list
   :group 'jmail)
 
+(defcustom jmail-search-unread (propertize "" 'font-lock-face '(:foreground "firebrick1"))
+  "String used to indicate unread message"
+  :type 'string
+  :group 'jmail)
+
+(defcustom jmail-search-flagged (propertize "" 'font-lock-face '(:foreground "goldenrod"))
+  "String used to indicate flagged message"
+  :type 'string
+  :group 'jmail)
+
+(defcustom jmail-search-attach (propertize "" 'font-lock-face '(:foreground "DarkViolet"))
+  "String used to indicate flagged message"
+  :type 'string
+  :group 'jmail)
+
 ;;; Internal Variables
 
 (defconst jmail-search--process-buffer-name "*jmail-search-process*")
@@ -232,27 +247,24 @@
 		     (>= (overlay-end ov) pos)))
 	      jmail-search--flags-overlays))
 
-(defun jmail-search--svg-flags (flags)
-  (let (svg)
-    (mapc (lambda (flag)
-	    (cond ((eq flag 'unread)
-		   (add-to-list 'svg (svg-rounded-text "unread" "white" "red")))
-		  ((eq flag 'flagged)
-		   (add-to-list 'svg (svg-rounded-text "star" "white" "goldenrod")))
-		  ((eq flag 'attach)
-		   (add-to-list 'svg (svg-rounded-text "attach" "white" "DarkViolet")))))
-	  flags)
-    svg))
+(defun jmail-search--flags-render (flags)
+  (let (flags-list)
+    (dolist (flag flags)
+      (cond ((eq flag 'unread)
+	     (push jmail-search-unread flags-list))
+	     ((eq flag 'flagged)
+              (push jmail-search-flagged flags-list))
+	     ((eq flag 'attach)
+              (push jmail-search-attach flags-list))))
+    flags-list))
 
 (defun jmail-search--insert-flags (start flags)
   (when (cl-intersection flags (list 'unread 'flagged 'attach))
-    (let* ((svg-flags (jmail-search--svg-flags flags))
-	   (svg-str (mapconcat (lambda (svg-flag)
-				 (propertize "x" 'display svg-flag))
-			       svg-flags " "))
+    (let* ((flags-list (jmail-search--flags-render flags))
+	   (flags-str (concat " " (string-join flags-list " ")))
 	   (overlay (make-overlay start (+ start 1))))
       (overlay-put overlay 'invisible t)
-      (overlay-put overlay 'before-string (format " %s" svg-str))
+      (overlay-put overlay 'before-string flags-str)
       (add-to-list 'jmail-search--flags-overlays overlay))))
 
 (defun jmail-search--delete-all-overlays ()

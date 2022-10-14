@@ -23,7 +23,6 @@
 
 ;;; Code:
 
-(require 'svg)
 (require 'tramp)
 
 ;;; Customization
@@ -51,18 +50,6 @@
 	       (mapcar (lambda (it) (list it (list 'match-string (cl-incf i) s)))
 		       varlist))
          ,@body))))
-
-(defun svg-rounded-text (text foreground background)
-  (let* ((text (upcase text))
-	 (char-width (frame-char-width))
-         (char-height (frame-char-height))
-         (radius (/ char-height 4))
-         (rect-width (* char-width (+ (length text) 1)))
-         (rect-height (+ char-height 2))
-         (svg (svg-create rect-width rect-height)))
-    (svg-rectangle svg 0 0 rect-width rect-height :fill background :rx radius)
-    (svg-text svg text :font-weight "bold" :fill foreground :x 2 :y (- char-height 4))
-    (svg-image svg :ascent 'center)))
 
 (defun jmail-untramp-path (path)
   (if (tramp-tramp-file-p path)
