@@ -24,6 +24,7 @@
 ;;; Code:
 
 (require 'subr-x)
+(require 'jmail-actions)
 (require 'jmail-compose)
 (require 'jmail-count)
 (require 'jmail-index)
@@ -48,6 +49,8 @@
 
 (defvar jmail-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map "a"      'jmail-actions-apply)
+
     (define-key map "g"      'jmail-refresh-at-point)
     (define-key map "G"      'jmail-refresh-all)
 
