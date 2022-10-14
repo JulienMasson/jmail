@@ -42,6 +42,9 @@
 (defun jmail-abort (msg)
   (error (substring-no-properties msg)))
 
+(defmacro jmail-cb (&rest body)
+  `(lambda () ,@body))
+
 (defun jmail-funcall (func &rest args)
   (condition-case-unless-debug err
       (apply func args)

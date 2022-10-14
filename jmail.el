@@ -26,10 +26,11 @@
 (require 'subr-x)
 (require 'jmail-compose)
 (require 'jmail-count)
+(require 'jmail-index)
 (require 'jmail-org-msg)
 (require 'jmail-rss)
 (require 'jmail-search)
-(require 'jmail-update)
+(require 'jmail-sync)
 (require 'jmail-utils)
 
 (defgroup jmail nil
@@ -50,9 +51,9 @@
     (define-key map "g"      'jmail-refresh-at-point)
     (define-key map "G"      'jmail-refresh-all)
 
-    (define-key map "f"      'jmail-fetch-refresh-at-point)
-    (define-key map "F"      'jmail-fetch-refresh-all)
-    (define-key map "C"      'jmail-cancel-fetch-refresh)
+    (define-key map "f"      'jmail-sync-refresh-at-point)
+    (define-key map "F"      'jmail-sync-refresh-all)
+    (define-key map "C"      'jmail-cancel-sync-refresh)
 
     (define-key map "u"      'jmail-unread-at-point)
     (define-key map "U"      'jmail-unread-all)
@@ -110,8 +111,8 @@
 - `jmail-jump-to-maildir'"
   :group 'jmail)
 
-(defcustom jmail-fetch-refresh-every nil
-  "If non nil, fetch and refresh every X seconds"
+(defcustom jmail-sync-refresh-every nil
+  "If non nil, sync and refresh every X seconds"
   :type 'integer
   :group 'jmail)
 
@@ -125,31 +126,22 @@
   :type 'hook
   :group 'jmail)
 
-(defcustom jmail-sync-config-file nil
-  "Path to the config file used by `jmail-sync-program'"
-  :type 'string
-  :group 'jmail)
-
 (defcustom jmail-smtp-config-file nil
   "Path to the smtp config file"
   :type 'string
   :group 'jmail)
-
-;;; External Variables
-
-(defconst jmail-index-program "mu")
-
-(defconst jmail-sync-program "mbsync")
 
 ;;; Internal Variables
 
 (defconst jmail--buffer-name "*jmail*")
 
 (defconst jmail--default-header "Welcome to Jmail !")
-(defconst jmail--fetch-ongoing (propertize "Fetch ongoing ..." 'face 'warning))
-(defconst jmail--fetch-error (propertize "Fetch Failed !" 'face 'error))
+(defconst jmail--index-ongoing (propertize "Index ongoing ..." 'face 'warning))
+(defconst jmail--index-error (propertize "Index Failed !" 'face 'error))
+(defconst jmail--sync-ongoing (propertize "Sync ongoing ..." 'face 'warning))
+(defconst jmail--sync-error (propertize "Sync Failed !" 'face 'error))
 
-(defvar jmail--fetch-refresh-timer nil)
+(defvar jmail--sync-refresh-timer nil)
 
 ;;; Internal Functions
 
@@ -202,8 +194,8 @@
 (defun jmail--setup ()
   (with-current-buffer (get-buffer-create jmail--buffer-name)
     (jmail-mode))
-  (when jmail-fetch-refresh-every
-    (jmail--restart-fetch-refresh-timer))
+  (when jmail-sync-refresh-every
+    (jmail--restart-sync-refresh-timer))
   (jmail-rss-setup)
   (jmail--goto-first-query))
 
@@ -273,30 +265,22 @@
 	     (jmail-bold-region beg (point) 'jmail-bold-region-face)
 	   (jmail-unbold-region beg (point))))))))
 
-(defun jmail--fetch-success-cb ()
-  (jmail--update-header-line jmail--default-header)
-  (jmail-refresh-all))
+(defun jmail--sync-refresh ()
+  (jmail--update-header-line jmail--sync-ongoing)
+  (jmail-sync (jmail-cb (jmail-refresh-all))
+              (jmail-cb (jmail--update-header-line jmail--sync-error))))
 
-(defun jmail--fetch-error-cb ()
-  (jmail--update-header-line jmail--fetch-error))
+(defun jmail--stop-sync-refresh-timer ()
+  (when jmail--sync-refresh-timer
+    (cancel-timer jmail--sync-refresh-timer)))
 
-(defun jmail--start-fetch-refresh (&optional skip-sync)
-  (jmail--update-header-line jmail--fetch-ongoing)
-  (jmail-update #'jmail--fetch-success-cb
-		#'jmail--fetch-error-cb
-		skip-sync))
+(defun jmail--start-sync-refresh-timer ()
+  (setq jmail--sync-refresh-timer
+	(run-at-time 1 jmail-sync-refresh-every 'jmail--sync-refresh)))
 
-(defun jmail--stop-fetch-refresh-timer ()
-  (when jmail--fetch-refresh-timer
-    (cancel-timer jmail--fetch-refresh-timer)))
-
-(defun jmail--start-fetch-refresh-timer ()
-  (setq jmail--fetch-refresh-timer
-	(run-at-time 1 jmail-fetch-refresh-every 'jmail--start-fetch-refresh)))
-
-(defun jmail--restart-fetch-refresh-timer ()
-  (jmail--stop-fetch-refresh-timer)
-  (jmail--start-fetch-refresh-timer))
+(defun jmail--restart-sync-refresh-timer ()
+  (jmail--stop-sync-refresh-timer)
+  (jmail--start-sync-refresh-timer))
 
 (defun jmail--maildir-name-list ()
   (let (maildir)
@@ -394,8 +378,7 @@
 				    :auto-fold-thread auto-fold-thread
 				    :related related))))
 
-(defun jmail-refresh-at-point ()
-  (interactive)
+(defun jmail-count-at-point ()
   (when-let* ((props (text-properties-at (point)))
 	      (query (plist-get props :query))
 	      (query-unread (format "(%s) and flag:unread" query))
@@ -406,11 +389,21 @@
       (jmail-count-get query handler)
       (jmail-count-get query-unread handler-unread))))
 
+(defun jmail-refresh-at-point ()
+  (interactive)
+  (jmail--update-header-line jmail--index-ongoing)
+  (jmail-index (jmail-cb (jmail-count-at-point)
+                         (jmail--update-header-line jmail--default-header))
+               (jmail-cb (jmail--update-header-line jmail--index-error))))
+
 (defun jmail-refresh-all ()
   (interactive)
-  (jmail--foreach-query (jmail-refresh-at-point)))
+  (jmail--update-header-line jmail--index-ongoing)
+  (jmail-index (jmail-cb (jmail--foreach-query (jmail-count-at-point))
+                         (jmail--update-header-line jmail--default-header))
+               (jmail-cb (jmail--update-header-line jmail--index-error))))
 
-(defun jmail-fetch-refresh-at-point ()
+(defun jmail-sync-refresh-at-point ()
   (interactive)
   (when-let* ((props (text-properties-at (point)))
 	      (query (plist-get props :query))
@@ -419,19 +412,21 @@
 					    (when (string-match regexp query)
 					      (match-string 1 query)))
 					  (split-string query)))))
-    (jmail--update-header-line jmail--fetch-ongoing)
-    (jmail-update-maildirs maildirs #'jmail--fetch-success-cb
-			   #'jmail--fetch-error-cb)))
+    (jmail--update-header-line jmail--sync-ongoing)
+    (jmail-sync-maildirs maildirs
+                         (jmail-cb (jmail-refresh-all))
+                         (jmail-cb (jmail--update-header-line jmail--sync-error)))))
 
-(defun jmail-fetch-refresh-all (&optional skip-sync)
+(defun jmail-sync-refresh-all ()
   (interactive)
-  (if (and jmail-fetch-refresh-every (not skip-sync))
-      (jmail--restart-fetch-refresh-timer)
-    (jmail--start-fetch-refresh skip-sync)))
+  (if jmail-sync-refresh-every
+      (jmail--restart-sync-refresh-timer)
+    (jmail--sync-refresh)))
 
-(defun jmail-cancel-fetch-refresh ()
+(defun jmail-cancel-sync-refresh ()
   (interactive)
-  (jmail-update-quit)
+  (jmail-sync-quit)
+  (jmail-index-quit)
   (jmail-count-quit)
   (jmail--update-header-line jmail--default-header))
 
@@ -476,11 +471,10 @@
 
 (defun jmail-quit ()
   (interactive)
-  (jmail-rss-quit)
   (jmail-search-quit)
-  (jmail--stop-fetch-refresh-timer)
-  (jmail-update-quit)
-  (jmail-count-quit)
+  (jmail-rss-quit)
+  (jmail--stop-sync-refresh-timer)
+  (jmail-cancel-sync-refresh)
   (with-jmail-buffer (kill-this-buffer))
   (run-hooks 'jmail-quit-hook))
 
@@ -498,6 +492,7 @@
   (jmail--check-env)
   (let ((default-directory jmail-top-maildir))
     (jmail--check-programs)
+    (jmail-index-check)
     (unless (get-buffer jmail--buffer-name)
       (jmail--setup))
     (jmail-refresh-all)

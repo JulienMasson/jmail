@@ -114,7 +114,7 @@
 	  (kill-buffer buffer)
 	  (unless jmail-rss--quit-ongoing
 	    (jmail-rss--rename-new-entries)
-	    (jmail-fetch-refresh-all t)))
+	    (jmail-sync-refresh-all)))
       (pop-to-buffer buffer)))
   (setq jmail-rss--quit-ongoing nil))
 

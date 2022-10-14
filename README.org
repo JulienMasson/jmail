@@ -9,7 +9,7 @@ It depends on the following tools:
 |----------------------+----------------+---------------------|
 | [[https://github.com/djcb/mu][mu]]                   |          1.9.0 | index/search        |
 | msmtp                |         1.8.21 | smtp multi accounts |
-| [[https://isync.sourceforge.io/mbsync.html][mbsync]]    (optional) |          1.4.4 | fetch emails        |
+| [[https://isync.sourceforge.io/mbsync.html][mbsync]]    (optional) |          1.4.4 | sync emails         |
 | feed2exec (optional) |         0.18.0 | fetch rss           |
 
 **** Basic configuration:
@@ -71,8 +71,8 @@ It depends on the following tools:
 			  :auto-fold-thread nil
 			  :related nil)
 
-;; fetch/refresh every 60 seconds
-(setq jmail-fetch-refresh-every 60)
+;; sync/refresh every 60 seconds
+(setq jmail-sync-refresh-every 60)
 #+end_src
 
 For more complete config, please look at mine [[https://github.com/JulienMasson/jm-config/blob/master/emacs/my-mail.el][perso-config]].
