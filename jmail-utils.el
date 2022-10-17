@@ -39,6 +39,9 @@
 
 ;;; External Functions
 
+(defun assoc-string-match (elem key)
+  (string-match key elem))
+
 (defun jmail-abort (msg)
   (error (substring-no-properties msg)))
 
