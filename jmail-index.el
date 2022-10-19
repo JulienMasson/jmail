@@ -35,6 +35,8 @@
 
 (defvar jmail-index-checked nil)
 
+(defvar jmail-index-running nil)
+
 ;;; Internal Functions
 
 (defun jmail-index--init ()
@@ -54,12 +56,14 @@
     (if (zerop (process-exit-status process))
         (when success (jmail-funcall success))
       (when error (jmail-funcall error)))
-    (kill-buffer (process-buffer process))))
+    (kill-buffer (process-buffer process)))
+  (setq jmail-index-running nil))
 
 ;;; External Functions
 
 (defun jmail-index-quit ()
-  (jmail-terminate-process-buffer jmail-index--buffer))
+  (jmail-terminate-process-buffer jmail-index--buffer)
+  (setq jmail-index-running nil))
 
 (defun jmail-index-check ()
   (unless jmail-index-checked
@@ -68,14 +72,16 @@
     (setq jmail-index-checked t)))
 
 (defun jmail-index (&optional success error)
-  (let* ((default-directory jmail-top-maildir)
-	 (program (executable-find jmail-index-program))
-	 (args (list "index" "--nocolor"))
-	 (buffer (get-buffer-create jmail-index--buffer))
-	 (process (apply 'start-file-process jmail-index--process
-			 buffer program args)))
-    (set-process-filter process 'jmail-index--process-filter)
-    (set-process-sentinel process (apply-partially #'jmail-index--process-sentinel
-                                                   success error))))
+  (unless jmail-index-running
+    (let* ((default-directory jmail-top-maildir)
+	   (program (executable-find jmail-index-program))
+	   (args (list "index" "--nocolor"))
+	   (buffer (get-buffer-create jmail-index--buffer))
+	   (process (apply 'start-file-process jmail-index--process
+			   buffer program args)))
+      (setq jmail-index-running t)
+      (set-process-filter process 'jmail-index--process-filter)
+      (set-process-sentinel process (apply-partially #'jmail-index--process-sentinel
+                                                     success error)))))
 
 (provide 'jmail-index)
