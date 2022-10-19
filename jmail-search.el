@@ -337,7 +337,7 @@
   (when-let ((start (jmail-search--subject-start)))
     (jmail-bold-region start (line-end-position))))
 
-(defun jmail-search--mark-as-read ()
+(defun jmail-search--mark-as-read (&optional refresh)
   (with-jmail-search-buffer
    (let* ((point (line-beginning-position))
 	  (object (text-properties-at point))
@@ -354,7 +354,9 @@
 	 (when jmail-search-show-flags
 	   (jmail-search--update-flags))
 	 (when jmail-search-bold-unread-message
-	   (jmail-search--unbold-subject)))
+	   (jmail-search--unbold-subject))
+         (when refresh
+           (jmail-refresh-all)))
        (setq new-path (jmail-search--rename-file path flags))
        (jmail-search--set-property :path new-path)))))
 
@@ -977,7 +979,7 @@
 	      (not (plist-get thread :orphan)))
 	 (jmail-view-thread object (jmail-search--objects-from-thread)
 			    (current-buffer))
-       (jmail-search--mark-as-read)
+       (jmail-search--mark-as-read t)
        (jmail-search--update-fold-overlay)
        (jmail-view (jmail-search--path) (current-buffer))))))
 
