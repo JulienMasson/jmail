@@ -38,6 +38,13 @@
   "jmail compose"
   (setq-local font-lock-defaults '(jmail-font-lock t)))
 
+;;; Customization
+
+(defcustom jmail-compose-hook nil
+  "Functions called when composing message"
+  :type 'hook
+  :group 'jmail)
+
 ;;; Internal Functions
 
 (defun jmail-compose--account-list ()
@@ -87,6 +94,7 @@
       (message-hide-headers)
       (set-buffer-modified-p nil)
       (jmail-compose-mode)
+      (run-hooks 'jmail-compose-hook)
       (jmail-capf-setup)
       (jmail-compose-setup-send-mail)
       (jmail-compose-set-extra-arguments account from-email)

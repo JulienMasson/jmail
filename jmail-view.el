@@ -59,6 +59,11 @@
   :type 'boolean
   :group 'jmail)
 
+(defcustom jmail-view-reply-hook nil
+  "Functions called when reply message"
+  :type 'hook
+  :group 'jmail)
+
 ;;; Internal Variables
 
 (defconst jmail-view--buffer-name "*jmail-view*")
@@ -418,6 +423,7 @@
      (when plain-text
        (jmail-view--insert-reply-text sender plain-text))
      (jmail-compose-mode)
+     (run-hook-with-args 'jmail-view-reply-hook data)
      (jmail-capf-setup)
      (jmail-compose-setup-send-mail)
      (jmail-compose-set-extra-arguments (car account) account-email)
@@ -445,6 +451,7 @@
      (when plain-text
        (jmail-view--insert-forward-text plain-text data))
      (jmail-compose-mode)
+     (run-hook-with-args 'jmail-view-reply-hook data)
      (when attachments
        (jmail-view--add-attachments attachments html-view))
      (jmail-capf-setup)

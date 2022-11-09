@@ -85,37 +85,42 @@
   (delete-all-overlays)
   (setq jmail-org-msg--infos-hidden nil))
 
-(defun jmail-org-msg--goto-body ()
-  (when-let ((options-range (jmail-org-msg--options-range)))
-    (goto-char (cadr options-range))))
+(defun jmail-org-msg--reply-to (reply-data)
+  (let* ((from (jmail-view--address-str reply-data :from))
+	 (subject (plist-get reply-data :subject))
+	 (to (jmail-view--address-str reply-data :to))
+	 (cc (jmail-view--address-str reply-data :cc))
+	 (date (jmail-view--date-str reply-data))
+         (header (list (concat "From: " from)
+                       (concat "To: " to)
+                       (when cc (concat "Cc: " cc))
+                       (concat "Subject: " subject)
+                       (concat "Date: " date)))
+         (header (string-join (delq nil header) "\n"))
+         (parts (with-temp-buffer
+                  (insert-file-contents (plist-get reply-data :path))
+                  (mm-dissect-buffer t))))
+    (with-temp-buffer
+      (let ((gnus-article-buffer (current-buffer))
+	    (gnus-article-mime-handles parts))
+	(prog1 (org-msg-save-article-for-reply-gnus parts header)
+	  (mm-destroy-parts parts))))))
 
-(defun jmail-org-msg--compose-htmlp ()
-  (or (org-msg-article-htmlp-jmail) ;; reply
-      (not (message-fetch-field "Subject")))) ;; new message
-
-(defun jmail-org-msg--extract-attachments ()
-  (let (attachments)
+(defun jmail-org-msg--setup (&optional reply-data)
+  (let ((reply-to (jmail-org-msg--reply-to reply-data)))
+    ;; clean-up body
     (save-excursion
       (message-goto-body)
-      (while (re-search-forward "^<#part filename=\"\\(.*\\)\"" nil t)
-	(add-to-list 'attachments (substring-no-properties (match-string 1)) t)))
-    attachments))
-
-(defun jmail-org-msg--compose ()
-  (when (jmail-org-msg--compose-htmlp)
-    (let ((attachments (jmail-org-msg--extract-attachments)))
-      ;; clean-up body
-      (save-excursion
-	(message-goto-body)
-	(delete-region (point) (point-max)))
-      ;; setup body
-      (org-msg-post-setup)
-      (mapc #'org-msg-attach-attach attachments)
-      (jmail-org-msg--hide-infos)
-      (jmail-org-msg--goto-body)
-      (insert "\n\n")
-      (set-buffer-modified-p nil)
-      (jmail-org-msg--set-keymap))))
+      (delete-region (point) (point-max)))
+    ;; setup body
+    (message-goto-body)
+    (insert (org-msg-header reply-to '(html)))
+    (insert "\n\n")
+    (insert org-msg-signature)
+    (org-msg-edit-mode)
+    (jmail-org-msg--hide-infos)
+    (set-buffer-modified-p nil)
+    (jmail-org-msg--set-keymap)))
 
 ;;; External Functions
 
@@ -140,70 +145,22 @@
       (jmail-org-msg--show-infos)
     (jmail-org-msg--hide-infos)))
 
-(defun org-msg-save-article-for-reply-jmail ()
-  "Export the currently visited jmail article as HTML."
-  (with-jmail-view-buffer
-   (when-let* ((props (text-properties-at (point)))
-	       (data (plist-get props :jmail-view-data))
-	       (html (plist-get data :body-html))
-	       (message-id (plist-get data :message-id))
-	       (file (concat (temporary-file-directory) message-id)))
-     (cl-flet* ((mails2str (l)
-		  (mapconcat (lambda (m)
-			       (format "%S &lt;%s&gt;" (car m) (cdr m)))
-			     l ", "))
-		(field2str (f)
-		  (when-let* ((str (message-fetch-field (car f)))
-			      (value (funcall (cdr f) str)))
-		    (format "%s: %s<br>\n" (capitalize (car f) value)))))
-	(with-temp-file file
-	  (save-excursion
-	    (insert html)
-	    (quoted-printable-decode-region (point-min) (point-max)))
-	  ;; Remove everything before html tag
-	  (save-excursion
-	    (if (re-search-forward "^<html\\(.*?\\)>" nil t)
-		(delete-region (point-min) (match-beginning 0))
-	      ;; Handle malformed HTML
-	      (insert "<html><body>")
-	      (goto-char (point-max))
-	      (insert "</body></html>")))
-	  ;; Insert reply header after body tag
-	  (when (re-search-forward "<body\\(.*?\\)>" nil t)
-	    (goto-char (match-end 0))
-	    (insert "<div align=\"left\">\n"
-		    (mapconcat #'field2str
-			       `(("From"    . ,#'mails2str)
-				 ("Subject" . identity)
-				 ("To"      . ,#'mails2str)
-				 ("Cc"      . ,#'mails2str)
-				 ("Date"    . message-make-date))
-			       "")
-		    "</div>\n<hr>\n")))
-	(list file)))))
-
-(defun org-msg-article-htmlp-jmail ()
-  "Return t if the current jmail article is HTML article."
-  (with-jmail-view-buffer jmail-view--html-view))
-
-(defun org-msg-mode-jmail ()
-  "Setup the hook for jmail mail user agent."
-  (if org-msg-mode
-      (add-hook 'jmail-compose-mode-hook 'jmail-org-msg--compose)
-    (remove-hook 'jmail-compose-mode-hook 'jmail-org-msg--compose)))
+(defun org-msg-mode-jmail ())
 
 (defun jmail-org-msg-enable ()
   "Enable `org-msg-mode' for jmail"
   (interactive)
   (add-to-list 'org-msg-supported-mua (cons 'jmail-user-agent "jmail"))
+  (add-hook 'jmail-compose-hook 'jmail-org-msg--setup)
+  (add-hook 'jmail-view-reply-hook 'jmail-org-msg--setup)
   (org-msg-mode 1))
 
 (defun jmail-org-msg-disable ()
   "Disable `org-msg-mode' for jmail"
   (interactive)
-  (when (assoc 'jmail-user-agent org-msg-supported-mua)
-    (org-msg-mode -1)
-    (setq org-msg-supported-mua (assq-delete-all 'jmail-user-agent
-						 org-msg-supported-mua))))
+  (org-msg-mode -1)
+  (remove-hook 'jmail-compose-hook 'jmail-org-msg--setup)
+  (remove-hook 'jmail-view-reply-hook 'jmail-org-msg--setup)
+  (setq org-msg-supported-mua (assoc-delete-all 'jmail-user-agent org-msg-supported-mua)))
 
 (provide 'jmail-org-msg)
